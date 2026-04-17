@@ -4,13 +4,16 @@ Este documento resume, script por script, qué argumentos conviene pedir desde e
 
 ## Convención de nombres
 
-- `01_youtube_tampico.py`
-- `02_twitter_tampico.py`
-- `03_medios_tampico.py`
-- `04_facebook_comentarios_tampico.py`
-- `05_facebook_posts_tampico.py`
+- `1_extractors_youtube.py`
+- `2_extractors_twitter.py`
+- `3_extractors_medios.py`
+- `4_extractors_facebook_posts.py`
+- `5_extractors_facebook_comentarios.py`
 - `06_consolidador_datos.py`
 - `07_modelado_temas_claude.py`
+- `10_publicaciones_institucionales_claude.py`
+- `11_analisis_polaridad.py`
+- `12_analisis_seguridad.py`
 - `00_orquestador_general.py`
 
 ## 01 YouTube
@@ -46,7 +49,7 @@ Este documento resume, script por script, qué argumentos conviene pedir desde e
 - Requisito operativo:
   - `state/x_state.json`
 
-## 03 Medios Tampico
+## 03 Medios Naucalpan
 
 - Prompt propio previo: no.
 - Argumentos clave:
@@ -161,6 +164,55 @@ Este documento resume, script por script, qué argumentos conviene pedir desde e
   - Salidas:
     - `Temas_Guiados/{semana}/`: clasificacion_temas_guiados.csv, distribucion_temas_guiados.png, top75_palabras_temas_guiados.csv, informe_temas_guiados.txt
   - Antes del envío crea un corpus combinado `.txt` dentro de la carpeta semanal de `Datos`
+
+## 10 Publicaciones Institucionales con Claude
+
+- Prompt propio previo: no.
+- Argumentos clave:
+  - `--since`
+  - `--before`
+  - `--twitter-dir`
+  - `--facebook-dir`
+  - `--youtube-dir`
+  - `--datos-dir`
+  - `--output-dir`
+  - `--model`
+  - `--max-corpus-chars`
+  - `--max-doc-chars`
+  - `--sample-seed`
+  - `--prepare-only` opcional
+- Credenciales:
+  - `CLAUDE_API_KEY` salvo en `--prepare-only`
+- Dependencia operativa:
+  - Requiere insumos institucionales de Twitter (`*_post_institucionales.csv`), Facebook (`*_posts.csv`) y/o YouTube (`*_scripts.csv`) para la semana consultada
+- Salidas:
+  - `Datos/{semana}/`: `publicaciones_institucionales_redes_*.csv`
+  - `Claude/{semana}/`: prompt, corpus, metadata, respuesta cruda, analisis markdown/json y tablas CSV de temas/porcentajes
+
+## 11 Analisis de Polaridad
+
+- Prompt propio previo: no.
+- Argumentos clave:
+  - Actualmente no recibe CLI; usa configuracion interna del script.
+- No requiere credenciales.
+- Dependencia operativa:
+  - Requiere diccionarios locales en `Scripts/diccionarios/`.
+  - Usa corpus configurado dentro del script.
+- Salidas:
+  - Carpeta `Polaridad/` en raiz del repo.
+
+## 12 Analisis de Seguridad/Inseguridad
+
+- Prompt propio previo: no.
+- Argumentos clave:
+  - Actualmente no recibe CLI; usa configuracion interna del script.
+- No requiere credenciales.
+- Dependencia operativa:
+  - Requiere diccionarios locales en `Scripts/diccionarios/`.
+  - Requiere stoplist en `Scripts/diccionarios/stopwords/stop_list_espanol.txt`.
+  - Requiere corpus de comentarios configurado dentro del script.
+- Salidas:
+  - Carpeta `Seguridad/` en raiz del repo.
 
 ## Criterio del orquestador
 

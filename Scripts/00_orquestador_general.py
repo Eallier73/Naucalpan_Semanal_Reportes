@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Orquestador general para los pipelines semanales de Tampico.
+Orquestador general para los pipelines semanales de Naucalpan.
 
 Objetivo:
 - Centralizar la captura de argumentos en un solo prompt.
@@ -54,7 +54,7 @@ DEFAULT_YOUTUBE_QUERIES = YOUTUBE_SEARCH_QUERIES
 DEFAULT_TWITTER_QUERIES = TWITTER_SEARCH_QUERIES
 DEFAULT_FB_PAGES = FACEBOOK_PAGES
 DEFAULT_MEDIOS_SITES = MEDIOS_SITES
-DEFAULT_TERMS_TAMPICO = MEDIOS_SEARCH_TERMS
+DEFAULT_MEDIOS_TERMS = MEDIOS_SEARCH_TERMS
 
 
 @dataclass(frozen=True)
@@ -68,13 +68,16 @@ class PipelineSpec:
 PIPELINES = [
     PipelineSpec("1", "youtube", "YouTube", "1_extractors_youtube.py"),
     PipelineSpec("2", "twitter", "Twitter/X", "2_extractors_twitter.py"),
-    PipelineSpec("3", "medios_tampico", "Medios Tampico", "3_extractors_medios.py"),
+    PipelineSpec("3", "medios_naucalpan", "Medios Naucalpan", "3_extractors_medios.py"),
     PipelineSpec("4", "facebook_posts", "Facebook Posts (incluye URL)", "4_extractors_facebook_posts.py"),
     PipelineSpec("5", "facebook_comentarios", "Facebook Comentarios (desde posts)", "5_extractors_facebook_comentarios.py"),
     PipelineSpec("6", "consolidador_datos", "Consolidador de Datos", "6_consolidador_datos.py"),
     PipelineSpec("7", "claude_nlp", "Modelado Tematico con Claude", "7_modelado_temas_claude.py"),
     PipelineSpec("8", "influencia_temas", "Analisis de Influencia de Temas", "8_influencia_temas.py"),
     PipelineSpec("9", "temas_guiados", "Analisis de Temas Guiados", "9_temas_guiados.py"),
+    PipelineSpec("10", "publicaciones_institucionales", "Publicaciones Institucionales con Claude", "10_publicaciones_institucionales_claude.py"),
+    PipelineSpec("11", "analisis_polaridad", "Analisis de Polaridad", "11_analisis_polaridad.py"),
+    PipelineSpec("12", "analisis_seguridad", "Analisis de Seguridad/Inseguridad", "12_analisis_seguridad.py"),
 ]
 
 PIPELINES_BY_CODE = {item.code: item for item in PIPELINES}
@@ -612,18 +615,94 @@ def build_temas_guiados(since: str, before: str, use_defaults: bool = False) -> 
     return cmd, {}
 
 
+def build_publicaciones_institucionales(since: str, before: str, use_defaults: bool = False) -> tuple[list[str], dict[str, str]]:
+    if use_defaults:
+        twitter_dir = str(REPO_ROOT / "Twitter")
+        facebook_dir = str(REPO_ROOT / "Facebook")
+        youtube_dir = str(REPO_ROOT / "Youtube")
+        datos_dir = str(REPO_ROOT / "Datos")
+        output_dir = str(REPO_ROOT / "Claude")
+        model = "claude-opus-4-6"
+        max_corpus_chars = 500000
+        max_doc_chars = 6000
+        sample_seed = 42
+        prepare_only = False
+        claude_api_key = ""
+    else:
+        print("\n=== Publicaciones Institucionales con Claude ===")
+        twitter_dir = prompt_text("Directorio base de Twitter", str(REPO_ROOT / "Twitter"))
+        facebook_dir = prompt_text("Directorio base de Facebook", str(REPO_ROOT / "Facebook"))
+        youtube_dir = prompt_text("Directorio base de Youtube", str(REPO_ROOT / "Youtube"))
+        datos_dir = prompt_text("Directorio base de Datos", str(REPO_ROOT / "Datos"))
+        output_dir = prompt_text("Directorio base de salida (Claude)", str(REPO_ROOT / "Claude"))
+        model = prompt_text("Modelo Claude", "claude-opus-4-6")
+        max_corpus_chars = prompt_int("Maximo de caracteres a enviar", 500000)
+        max_doc_chars = prompt_int("Maximo de caracteres por publicacion", 6000)
+        sample_seed = prompt_int("Semilla de muestreo", 42)
+        prepare_only = prompt_bool("¿Solo preparar corpus y prompt sin llamar a Claude?", False)
+        claude_api_key = "" if prepare_only else prompt_secret("Claude API key", "CLAUDE_API_KEY", required=True)
+
+    env = {}
+    if not use_defaults and claude_api_key:
+        if claude_api_key != os.getenv("CLAUDE_API_KEY", ""):
+            env["CLAUDE_API_KEY"] = claude_api_key
+
+    cmd = [
+        sys.executable,
+        str(SCRIPTS_DIR / "10_publicaciones_institucionales_claude.py"),
+        "--since", since,
+        "--before", before,
+        "--twitter-dir", twitter_dir,
+        "--facebook-dir", facebook_dir,
+        "--youtube-dir", youtube_dir,
+        "--datos-dir", datos_dir,
+        "--output-dir", output_dir,
+        "--model", model,
+        "--max-corpus-chars", str(max_corpus_chars),
+        "--sample-seed", str(sample_seed),
+        "--max-doc-chars", str(max_doc_chars),
+    ]
+    if prepare_only:
+        cmd.append("--prepare-only")
+    return cmd, env
+
+
+def build_analisis_polaridad(use_defaults: bool = False) -> tuple[list[str], dict[str, str]]:
+    if not use_defaults:
+        print("\n=== Analisis de Polaridad ===")
+        print("Este pipeline usa la configuracion interna del script 11_analisis_polaridad.py")
+
+    cmd = [
+        sys.executable,
+        str(SCRIPTS_DIR / "11_analisis_polaridad.py"),
+    ]
+    return cmd, {}
+
+
+def build_analisis_seguridad(use_defaults: bool = False) -> tuple[list[str], dict[str, str]]:
+    if not use_defaults:
+        print("\n=== Analisis de Seguridad/Inseguridad ===")
+        print("Este pipeline usa la configuracion interna del script 12_analisis_seguridad.py")
+
+    cmd = [
+        sys.executable,
+        str(SCRIPTS_DIR / "12_analisis_seguridad.py"),
+    ]
+    return cmd, {}
+
+
 def build_pipeline(spec: PipelineSpec, since: str, before: str, use_defaults: bool = False, facebook_posts_csv: str = "") -> tuple[list[str], dict[str, str]]:
     if spec.key == "youtube":
         return build_youtube(since, before, use_defaults)
     if spec.key == "twitter":
         return build_twitter(since, before, use_defaults)
-    if spec.key == "medios_tampico":
+    if spec.key == "medios_naucalpan":
         return build_medios(
             spec.filename,
             spec.label,
-            DEFAULT_TERMS_TAMPICO,
+            DEFAULT_MEDIOS_TERMS,
             str(REPO_ROOT / "Medios"),
-            "noticias_tampico",
+            "noticias_naucalpan",
             since,
             before,
             use_defaults,
@@ -640,6 +719,12 @@ def build_pipeline(spec: PipelineSpec, since: str, before: str, use_defaults: bo
         return build_influencia_temas(since, before, use_defaults)
     if spec.key == "temas_guiados":
         return build_temas_guiados(since, before, use_defaults)
+    if spec.key == "publicaciones_institucionales":
+        return build_publicaciones_institucionales(since, before, use_defaults)
+    if spec.key == "analisis_polaridad":
+        return build_analisis_polaridad(use_defaults)
+    if spec.key == "analisis_seguridad":
+        return build_analisis_seguridad(use_defaults)
     raise ValueError(f"Pipeline no soportado: {spec.key}")
 
 
@@ -658,13 +743,16 @@ def _source_label_for_spec(spec: PipelineSpec) -> str | None:
     labels = {
         "youtube": "Youtube",
         "twitter": "Twitter",
-        "medios_tampico": "Medios",
+        "medios_naucalpan": "Medios",
         "facebook_posts": "Facebook",
         "facebook_comentarios": "Facebook",
         "consolidador_datos": "Datos",
         "claude_nlp": "Claude",
         "influencia_temas": "Influencia_Temas",
         "temas_guiados": "Temas_Guiados",
+        "publicaciones_institucionales": "Claude",
+        "analisis_polaridad": "Polaridad",
+        "analisis_seguridad": "Seguridad",
     }
     return labels.get(spec.key)
 
@@ -684,7 +772,7 @@ def weekly_output_dir_for_command(spec: PipelineSpec, since: str, cmd: list[str]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Orquestador general de pipelines Tampico")
+    parser = argparse.ArgumentParser(description="Orquestador general de pipelines Naucalpan")
     parser.add_argument("--dry-run", action="store_true", help="Solo imprime comandos, no los ejecuta")
     args = parser.parse_args()
 
@@ -727,6 +815,7 @@ def main() -> None:
         "7": "Claude",
         "8": "Influencia Temas",
         "9": "Temas Guiados",
+        "12": "Analisis de Seguridad/Inseguridad",
     }
     for dependent_code, dependent_label in required_by_consolidador.items():
         selected_codes = {s.code for s in selected}
