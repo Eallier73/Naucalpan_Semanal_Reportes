@@ -52,7 +52,7 @@ def _sources(since: str, base_dir: Path) -> dict[str, list[Path]]:
         base_dir / "Twitter"  / tw  / f"{tw}_comentarios.txt",
         base_dir / "Facebook" / fb  / f"{fb}_comentarios.txt",
         base_dir / "Youtube"  / yt  / f"{yt}_comentarios.txt",
-        base_dir / "Medios"   / med / f"noticias_tampico_{med}.txt",
+        base_dir / "Medios"   / med / f"noticias_naucalpan_{med}.txt",
     ]
 
     return {"institucional": institucional, "comentarios": comentarios}

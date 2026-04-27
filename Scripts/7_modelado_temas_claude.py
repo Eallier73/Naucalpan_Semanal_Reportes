@@ -64,7 +64,7 @@ def valid_date(value: str) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Combina los materiales de Datos, los envia a Claude y genera salidas semanales para Tampico"
+        description="Combina los materiales de Datos, los envia a Claude y genera salidas semanales para Naucalpan"
     )
     parser.add_argument("--since", required=True, type=valid_date,
                         help="Fecha inicio YYYY-MM-DD (define la semana ISO)")
@@ -183,21 +183,21 @@ def build_prompt(since: str) -> str:
     month_label = MONTH_NAMES[dt.month]
     year_label = dt.year
     return f"""
-Analiza este corpus de conversación digital sobre TAMPICO, enfocándote específicamente en:
-- Gestión del Gobierno Municipal de Tampico
-- Acciones, decisiones y declaraciones de Mónica Villarreal Anaya, presidenta municipal de Tampico
-- Políticas públicas, servicios urbanos e intervención municipal en Tampico (alumbrado, limpieza, seguridad, turismo, cultura, protección civil, infraestructura, movilidad y mantenimiento urbano)
+Analiza este corpus de conversación digital sobre NAUCALPAN, enfocándote específicamente en:
+- Gestión del Gobierno Municipal de Naucalpan
+- Acciones, decisiones y declaraciones de Isaac Montoya, presidente municipal de Naucalpan
+- Políticas públicas, servicios urbanos e intervención municipal en Naucalpan (alumbrado, limpieza, seguridad, cultura, protección civil, infraestructura, movilidad, mantenimiento urbano y guardia municipal)
 - Percepción ciudadana sobre el gobierno municipal, sus funcionarios, programas y resultados
-- Problemáticas, sucesos y debates propios de Tampico y su zona inmediata cuando afecten directamente al municipio
+- Problemáticas, sucesos y debates propios de Naucalpan y su zona inmediata cuando afecten directamente al municipio
 
 Genera un análisis temático con el siguiente formato EXACTO:
 
-## ANÁLISIS TEMÁTICO DE LA CONVERSACIÓN DIGITAL SOBRE TAMPICO Y SU GOBIERNO MUNICIPAL - {month_label} DE {year_label}
+## ANÁLISIS TEMÁTICO DE LA CONVERSACIÓN DIGITAL SOBRE NAUCALPAN Y SU GOBIERNO MUNICIPAL - {month_label} DE {year_label}
 
-### TEMAS PRINCIPALES (Narrativa descriptiva de los 8 temas más relevantes sobre Tampico y su gobierno municipal):
+### TEMAS PRINCIPALES (Narrativa descriptiva de los 8 temas más relevantes sobre Naucalpan y su gobierno municipal):
 
 **1. [NOMBRE DEL TEMA EN MAYÚSCULAS]**
-[Párrafo descriptivo de MÁXIMO 4 líneas (5 líneas máximo absoluto). Enfócate en acciones del gobierno municipal de Tampico, reacciones ciudadanas, debate público, cuestionamientos, respaldos o controversias específicas.]
+[Párrafo descriptivo de MÁXIMO 4 líneas (5 líneas máximo absoluto). Enfócate en acciones del gobierno municipal de Naucalpan, reacciones ciudadanas, debate público, cuestionamientos, respaldos o controversias específicas.]
 
 **2. [NOMBRE DEL TEMA EN MAYÚSCULAS]**
 [Párrafo descriptivo de MÁXIMO 4 líneas (5 líneas máximo absoluto).]
@@ -262,16 +262,16 @@ XXX menciones - [Descripción breve de 10-15 palabras en una sola línea]
 **CRITERIOS DE CONTENIDO:**
 - Identifica EXACTAMENTE 8 temas principales que cubran todo el corpus
 - PRIORIZA temas relacionados con:
-  * Gestión y decisiones del Gobierno Municipal de Tampico
-  * Acciones, declaraciones y programas de Mónica Villarreal Anaya y su administración
-  * Servicios públicos municipales (alumbrado, limpieza, bacheo, mantenimiento urbano, protección civil, turismo, cultura, seguridad y atención ciudadana)
-  * Infraestructura y desarrollo urbano de Tampico
-  * Percepción ciudadana sobre el desempeño del Ayuntamiento de Tampico
-- Si aparecen actores estatales o federales, inclúyelos solo cuando impacten directamente la conversación sobre Tampico
+  * Gestión y decisiones del Gobierno Municipal de Naucalpan
+  * Acciones, declaraciones y programas de Isaac Montoya y su administración
+  * Servicios públicos municipales (alumbrado, limpieza, bacheo, mantenimiento urbano, protección civil, cultura, seguridad, guardia municipal y atención ciudadana)
+  * Infraestructura y desarrollo urbano de Naucalpan
+  * Percepción ciudadana sobre el desempeño del Ayuntamiento de Naucalpan
+- Si aparecen actores estatales o federales, inclúyelos solo cuando impacten directamente la conversación sobre Naucalpan
 - Usa lenguaje técnico pero accesible para tomadores de decisiones
-- Categoriza por temática específica de Tampico y su gobierno municipal, no por sentimiento general
+- Categoriza por temática específica de Naucalpan y su gobierno municipal, no por sentimiento general
 - Las menciones deben ser números reales estimados del corpus
-- Ignora conversaciones ajenas a Tampico o que no tengan impacto claro en la agenda municipal
+- Ignora conversaciones ajenas a Naucalpan o que no tengan impacto claro en la agenda municipal
 """.strip()
 
 
@@ -346,7 +346,7 @@ def main() -> None:
     claude_dir = weekly_output_dir(output_dir, args.since)
     claude_tag = build_report_tag(args.since, "Claude")
 
-    log_message("🤖 ANÁLISIS TEMÁTICO CON CLAUDE PARA TAMPICO")
+    log_message("🤖 ANÁLISIS TEMÁTICO CON CLAUDE PARA NAUCALPAN")
     log_message(f"Semana de datos: {datos_dir}")
     log_message(f"Salida Claude: {claude_dir}")
 

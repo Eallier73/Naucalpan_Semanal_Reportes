@@ -2,7 +2,7 @@
 """
 9_temas_guiados.py
 ==================
-Analisis de temas guiados por palabras clave para el reporte semanal de Tampico.
+Analisis de temas guiados por palabras clave para el reporte semanal de Naucalpan.
 
 Entradas por defecto:
 - Datos/{semana}/material_institucional.txt
@@ -36,7 +36,7 @@ DEFAULT_EXCLUDE_WORDS_PATH = (
 
 TOPIC_KEYWORDS = {
     0: [
-        "agua", "comapa", "fuga", "fugas", "inundacion", "inundaciones", "suministro",
+        "agua", "oapas", "fuga", "fugas", "inundacion", "inundaciones", "suministro",
         "potable", "corte", "bombeo", "bomba", "cortan", "tuberia", "tubo", "tubos",
         "hidraulica", "hidraulico", "sed", "grifo", "llave", "sequia",
         "basura", "recoleccion", "contenedor", "contenedores", "bolsa", "bolsas",
@@ -284,7 +284,7 @@ def run_topic_analysis(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Analisis de temas guiados por keywords para Tampico")
+    parser = argparse.ArgumentParser(description="Analisis de temas guiados por keywords para Naucalpan")
     parser.add_argument("--since", required=True, help="Fecha inicio (YYYY-MM-DD)")
     parser.add_argument("--before", required=True, help="Fecha fin (YYYY-MM-DD)")
     parser.add_argument("--input-dir", help="Directorio base de entrada (default: Datos)")
@@ -310,7 +310,7 @@ def main() -> int:
     report_tag = build_report_tag(args.since, "Temas_Guiados")
 
     log("=" * 70)
-    log("ANALISIS DE TEMAS GUIADOS - TAMPICO")
+    log("ANALISIS DE TEMAS GUIADOS - NAUCALPAN")
     log("=" * 70)
     log(f"Periodo: {args.since} a {args.before}")
     log(f"Input semanal: {input_week_dir}")

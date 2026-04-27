@@ -1,186 +1,138 @@
-# Configuración Centralizada de Queries
+# Configuracion Centralizada de Queries
 
-Este documento explica cómo gestionar las queries y parámetros de los extractores desde un único lugar.
+Este documento explica como gestionar las queries y parametros de los extractores desde un unico lugar.
 
-## 📍 Ubicación
+## Ubicacion
 
-El archivo de configuración se encuentra en:
-```
+```text
 Scripts/queries_config.py
 ```
 
-## 📋 Contenido
+## Que contiene
 
-Actualmente contiene configuración para:
+### 1. YouTube (`YOUTUBE_*`)
 
-### 1. **YouTube** (`YOUTUBE_*`)
-- `YOUTUBE_CHANNELS`: Lista de canales a monitorear
-- `YOUTUBE_SEARCH_QUERIES`: Queries de búsqueda
-- `YOUTUBE_DEFAULT_MAX_VIDEOS_QUERY`: Máximo videos por query
-- `YOUTUBE_DEFAULT_MAX_VIDEOS_CHANNEL`: Máximo videos por canal
+- `YOUTUBE_CHANNELS`
+- `YOUTUBE_SEARCH_QUERIES`
+- `YOUTUBE_DEFAULT_MAX_VIDEOS_QUERY`
+- `YOUTUBE_DEFAULT_MAX_VIDEOS_CHANNEL`
 
-**Cambiar:**
+Ejemplo actual:
+
 ```python
 YOUTUBE_CHANNELS = [
-    "monicavtampico",
-    "otro_canal",  # Agregar aquí
+    "CiudadNaucalpan",
 ]
 
 YOUTUBE_SEARCH_QUERIES = [
-    "mi nueva query aqui",
+    "presidente municipal de naucalpan",
+    "Gobierno de Naucalpan",
+    "gobierno de naucalpan",
+    "guardia municipal de naucalpan",
+    "ciudad naucalpan",
 ]
 ```
 
-### 2. **Twitter/X** (`TWITTER_*`)
-- `TWITTER_SEARCH_QUERIES`: Queries de búsqueda
-- `TWITTER_DEFAULT_MAX_TWEETS`: Máximo tweets
-- `TWITTER_DEFAULT_MAX_REPLIES_PER_TWEET`: Máximo respuestas por tweet
-- `TWITTER_DEFAULT_MAX_REPLY_SCROLLS`: Máximo scrolls
+### 2. Twitter/X (`TWITTER_*`)
 
-**Cambiar:**
+- `TWITTER_SEARCH_QUERIES`
+- `TWITTER_DEFAULT_MAX_TWEETS`
+- `TWITTER_DEFAULT_MAX_REPLIES_PER_TWEET`
+- `TWITTER_DEFAULT_MAX_REPLY_SCROLLS`
+
+Ejemplo actual:
+
 ```python
 TWITTER_SEARCH_QUERIES = [
-    "nueva query",
-    "otra query",
+    "to:isaacsolar",
+    "from:isaacsolar",
+    "to:GobNau",
+    "from:GobNau",
+    "@GobNau",
+    "@isaacsolar",
+    "isaac montoya",
+    "gobierno de naucalpan",
+    "naucalpan",
+    "guardia municipal de naucalpan",
 ]
 ```
 
-### 3. **Medios** (`MEDIOS_*`)
-- `MEDIOS_SITES`: Sitios a monitorear
-- `MEDIOS_SEARCH_TERMS`: Términos de búsqueda
-- `MEDIOS_DEFAULT_MODE_QUERIES`: Modo de queries (compacto/combinado)
-- Pausas entre requests
+### 3. Medios (`MEDIOS_*`)
 
-**Cambiar:**
+- `MEDIOS_SITES`
+- `MEDIOS_SEARCH_TERMS`
+- `MEDIOS_DEFAULT_MODE_QUERIES`
+- pausas entre requests
+
+Ejemplo actual:
+
 ```python
 MEDIOS_SITES = [
-    "site:nuevositio.com.mx",
+    "site:oem.com.mx",
+    "site:diariodenaucalpan.com",
 ]
 
 MEDIOS_SEARCH_TERMS = [
-    '"nuevo termino"',
+    '"Isaac Montoya"',
+    '"gobierno de naucalpan"',
+    '"naucalpan"',
+    '"guardia municipal de naucalpan"',
 ]
 ```
 
-### 4. **Facebook** (`FACEBOOK_*`)
-- `FACEBOOK_PAGES`: Páginas a monitorear
-- `FACEBOOK_COMMENTS_DEFAULT_MAX_COMMENTS`: Máximo comentarios
-- `FACEBOOK_POSTS_DEFAULT_MAX_POSTS`: Máximo posts
+### 4. Facebook (`FACEBOOK_*`)
 
-**Cambiar:**
+- `FACEBOOK_PAGES`
+- `FACEBOOK_COMMENTS_DEFAULT_MAX_COMMENTS`
+- `FACEBOOK_POSTS_DEFAULT_MAX_POSTS`
+
+Ejemplo actual:
+
 ```python
 FACEBOOK_PAGES = [
-    "nueva_pagina",
-    "otra_pagina",
+    "GuardiaMunicipalCiudadNaucalpan",
+    "isaacmontoya24",
+    "CiudadNaucalpan",
 ]
 ```
 
-## 🔗 Cómo usar en los extractores
+## Como se usa
 
-### Opción 1: Importar en los scripts (Recomendado)
+Los extractores y el orquestador importan esta configuracion directamente.
 
 ```python
-# En el script extractor (ej: 1_extractors_youtube.py)
-from queries_config import YOUTUBE_SEARCH_QUERIES, YOUTUBE_CHANNELS
+from queries_config import YOUTUBE_CHANNELS, YOUTUBE_SEARCH_QUERIES
 
-DEFAULT_YOUTUBE_CHANNELS = YOUTUBE_CHANNELS
-DEFAULT_YOUTUBE_QUERIES = YOUTUBE_SEARCH_QUERIES
+DEFAULT_CHANNEL_HANDLES = YOUTUBE_CHANNELS
+DEFAULT_SEARCH_QUERIES = YOUTUBE_SEARCH_QUERIES
 ```
 
-### Opción 2: Ver configuración actual
+Para ver la configuracion completa:
 
-Ejecutar directamente para ver toda la configuración en formato JSON:
 ```bash
 python Scripts/queries_config.py
 ```
 
-Salida:
+Salida esperada:
+
 ```json
 {
   "youtube": {
-    "channels": ["monicavtampico"],
-    "search_queries": ["presidenta municipal de Tampico", ...],
-    ...
+    "channels": ["CiudadNaucalpan"],
+    "search_queries": ["presidente municipal de naucalpan", "..."]
   },
-  ...
+  "twitter": {
+    "search_queries": ["to:isaacsolar", "..."]
+  }
 }
 ```
 
-## 🎯 Flujo de cambio recomendado
+## Flujo recomendado para cambios
 
-1. **Identificar qué cambiar** en `queries_config.py`
-2. **Modificar el valor** correspondiente
-3. **Guardar** el archivo
-4. **Actualizar** los scripts para que importen de `queries_config.py` (si aún no lo hacen)
-5. **Probar** el cambio
+1. Modificar `Scripts/queries_config.py`.
+2. Confirmar que el extractor correspondiente use imports desde ese archivo.
+3. Ejecutar el pipeline requerido.
 
-## 📝 Ejemplo práctico
+## Nota de medios
 
-### Agregar un nuevo sitio de medios:
-
-```python
-# Antes:
-MEDIOS_SITES = [
-    "site:oem.com.mx",
-    "site:milenio.com",
-]
-
-# Después:
-MEDIOS_SITES = [
-    "site:oem.com.mx",
-    "site:milenio.com",
-    "site:nuevositio.com.mx",  # ⬅️ Agregado
-]
-```
-
-### Cambiar términos de búsqueda:
-
-```python
-# Antes:
-MEDIOS_SEARCH_TERMS = [
-    '"Monica Villarreal"',
-    '"gobierno de tampico"',
-    '"tampico"',
-]
-
-# Después:
-MEDIOS_SEARCH_TERMS = [
-    '"Monica Villarreal"',
-    '"gobierno de tampico"',
-    '"tampico"',
-    '"nueva palabra clave"',  # ⬅️ Agregado
-]
-```
-
-## 🔄 Funciones auxiliares
-
-El archivo proporciona funciones para obtener toda la configuración:
-
-```python
-from queries_config import get_youtube_config, get_twitter_config, get_medios_config, get_all_config
-
-# Obtener config de YouTube
-yt_config = get_youtube_config()
-
-# Obtener config de todos los extractores
-all_config = get_all_config()
-```
-
-## ⚙️ Migración gradual de scripts
-
-Los extractores pueden migrar gradualmente a usar `queries_config.py`:
-
-1. ✅ `00_orquestador_general.py` - Puede importar de aquí
-2. ⏳ `1_extractors_youtube.py` - Por migrar
-3. ⏳ `2_extractors_twitter.py` - Por migrar
-4. ⏳ `3_extractors_medios.py` - Por migrar
-5. ⏳ `4_extractors_facebook_comentarios.py` - Por migrar
-6. ⏳ `5_extractors_facebook_posts.py` - Por migrar
-
-## 📌 Notas
-
-- El archivo está en Python para facilitar importaciones en otros scripts
-- Todos los valores son facilmente editables
-- No requiere herramientas especiales para cambiar
-- Los cambios se aplican inmediatamente a los scripts que importan de aquí
-- Se recomienda versionarlo en git para tracking de cambios
+Aunque la referencia operativa incluya URLs concretas como `https://oem.com.mx/la-prensa/tags/temas/naucalpan`, el extractor de medios consume Google News RSS y por eso usa filtros `site:` compatibles con ese mecanismo.

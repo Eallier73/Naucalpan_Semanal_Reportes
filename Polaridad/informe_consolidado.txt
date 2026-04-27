@@ -1,0 +1,14 @@
+=== INFORME CONSOLIDADO DE ANÁLISIS DE SENTIMIENTO ===
+
+TABLA DE POLARIDAD POSITIVA/NEGATIVA
+--------------------------------------------------------------------------------
+Archivo                                  |  Positivas % |  Negativas % | Total palabras
+--------------------------------------------------------------------------------
+guardia_menciones_01_15_abril            |        36.2% |        63.8% |          436
+
+
+TABLA DE SEGURIDAD/INSEGURIDAD
+--------------------------------------------------------------------------------
+Archivo                                  |  Seguridad % |  Inseguridad % | Total palabras
+--------------------------------------------------------------------------------
+guardia_menciones_01_15_abril            |        25.2% |          74.8% |          111

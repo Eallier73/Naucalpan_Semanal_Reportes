@@ -11,7 +11,7 @@
 ║                                                                           ║
 ║   Uso Modo A (directo):                                                  ║
 ║   python 4_extractors_facebook_posts.py \\                               ║
-║     --pages TampicoGob monicavtampico \\                                 ║
+║     --pages GuardiaMunicipalCiudadNaucalpan isaacmontoya24 CiudadNaucalpan \\ ║
 ║     --since 2026-03-01 --before 2026-03-12 \\                            ║
 ║     --output-dir ./Facebook                                              ║
 ║                                                                           ║
@@ -40,12 +40,13 @@ from urllib.parse import urlparse
 import pandas as pd
 
 from output_naming import build_report_tag
+from queries_config import FACEBOOK_PAGES
 
 
 ACTOR_POSTS = "apify/facebook-posts-scraper"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_BASE_DIR = str(REPO_ROOT / "Facebook")
-DEFAULT_PAGES = ["monicavtampico", "TampicoGob"]
+DEFAULT_PAGES = [*FACEBOOK_PAGES]
 DEFAULT_RESULTS_LIMIT_PER_PAGE = 100
 DEFAULT_BATCH_SIZE = 10
 
@@ -391,7 +392,7 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 Modo A - Descarga directa desde páginas:
   python 4_extractors_facebook_posts.py \\
-    --pages TampicoGob monicavtampico \\
+    --pages GuardiaMunicipalCiudadNaucalpan isaacmontoya24 CiudadNaucalpan \\
     --since 2026-03-01 --before 2026-03-12 \\
     --output-dir ./Facebook
 

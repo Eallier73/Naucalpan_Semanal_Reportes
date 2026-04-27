@@ -4,7 +4,7 @@
 """
 8_influencia_temas.py
 ====================
-Analiza corpus semanal de Tampico y estima la influencia de temas (0-6)
+Analiza corpus semanal de Naucalpan y estima la influencia de temas (0-6)
 sobre la polaridad global mediante regresión Ridge + Logística + Correlación.
 
 ENTRADAS
@@ -58,7 +58,7 @@ DEFAULT_STOPWORDS_PATH = (
 )
 
 # =========================
-# CONFIGURACIÓN TAMPICO
+# CONFIGURACIÓN NAUCALPAN
 # =========================
 TOPIC_IDS = [0, 1, 2, 3, 4, 6]
 NEGATIVE_TOPICS = [1, 2]  # Temas donde palabras negativas = polaridad negativa
@@ -89,7 +89,7 @@ TEMAS_KEYWORDS = {
                 'charco', 'charcos', 'sed',
             ],
             'neutras': [
-                'agua', 'comapa', 'conagua', 'drenaje', 'drenajes', 'ductos',
+                'agua', 'oapas', 'conagua', 'drenaje', 'drenajes', 'ductos',
                 'alcantarillado', 'alcantarillas', 'cano', 'tuberia', 'tuberias',
                 'tubo', 'tubos', 'hidraulica', 'hidraulico', 'hidrica', 'hidrico',
                 'pozo', 'pozos', 'piscinas', 'grifo', 'llave', 'bomba',
@@ -902,7 +902,7 @@ def weekly_output_dir(base_dir: Path, since: str) -> Path:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Analisis de influencia de temas sobre polaridad en Tampico")
+    parser = argparse.ArgumentParser(description="Analisis de influencia de temas sobre polaridad en Naucalpan")
     parser.add_argument("--since", required=True, help="Fecha inicio (YYYY-MM-DD)")
     parser.add_argument("--before", required=True, help="Fecha fin (YYYY-MM-DD)")
     parser.add_argument("--input-dir", help="Directorio con archivos material_*.txt (opcional)")
@@ -931,7 +931,7 @@ def main():
     output_dir = weekly_output_dir(output_base_dir, args.since)
     
     log("=" * 70)
-    log("ANÁLISIS DE INFLUENCIA DE TEMAS - TAMPICO")
+    log("ANÁLISIS DE INFLUENCIA DE TEMAS - NAUCALPAN")
     log("=" * 70)
     log(f"Período: {args.since} a {args.before}")
     log(f"Input: {input_dir}")

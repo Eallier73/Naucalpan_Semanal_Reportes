@@ -1,6 +1,6 @@
-# Tampico_Semanal_Reportes
+# Naucalpan_Semanal_Reportes
 
-Repo base para descargar datos semanales de redes y medios en Tampico, y dejar la salida lista para procesos posteriores de NLP, homologación y análisis.
+Repo base para descargar datos semanales de redes y medios en Naucalpan, y dejar la salida lista para procesos posteriores de NLP, homologación y análisis.
 
 ## Alcance
 
@@ -15,7 +15,7 @@ Este repo parte de `Datos_Radar`, pero quedó limpiado para uso operativo:
 ## Estructura
 
 ```text
-Tampico_Semanal_Reportes/
+Naucalpan_Semanal_Reportes/
 ├── Claude/
 ├── Datos/
 ├── Facebook/
@@ -36,16 +36,18 @@ Donde:
 
 ## Scripts incluidos
 
+- `Scripts/00_gui_orquestador.py`
 - `Scripts/00_orquestador_general.py`
-- `Scripts/01_youtube_tampico.py`
-- `Scripts/02_twitter_tampico.py`
-- `Scripts/03_medios_tampico.py`
-- `Scripts/04_facebook_comentarios_tampico.py`
-- `Scripts/05_facebook_posts_tampico.py`
+- `Scripts/1_extractors_youtube.py`
+- `Scripts/2_extractors_twitter.py`
+- `Scripts/3_extractors_medios.py`
+- `Scripts/4_extractors_facebook_posts.py`
+- `Scripts/5_extractors_facebook_comentarios.py`
 - `Scripts/6_consolidador_datos.py`
 - `Scripts/7_modelado_temas_claude.py`
 - `Scripts/8_influencia_temas.py`
 - `Scripts/9_temas_guiados.py`
+- `Scripts/10_publicaciones_institucionales_claude.py`
 
 ## Variables de entorno
 
@@ -79,6 +81,25 @@ playwright install chromium
 python Scripts/00_orquestador_general.py
 ```
 
+Si prefieres interfaz gráfica:
+
+```bash
+python Scripts/00_gui_orquestador.py
+```
+
+O con lanzador corto desde la raíz del repo:
+
+```bash
+python abrir_gui_orquestador.py
+```
+
+La GUI usa el mismo motor del orquestador general, respeta las dependencias operativas entre pipelines y ya permite dos flujos:
+
+- Modo genérico con parámetros por defecto.
+- Modo específico por red, reutilizando los prompts del orquestador mediante diálogos de Tkinter.
+
+Se dejó además una plantilla reusable en `Templates/` para portar esta arquitectura a otros repos semanales.
+
 El detalle script por script de argumentos y prompts quedó en `ORQUESTADOR_ARGUMENTOS.md`.
 
 ## Notas operativas
@@ -90,4 +111,5 @@ El detalle script por script de argumentos y prompts quedó en `ORQUESTADOR_ARGU
 - La carpeta `Temas_Guiados/{semana}/` contiene clasificacion por tema, top de palabras y reporte textual del analisis guiado.
 - El pipeline 9 (Temas Guiados) requiere que se ejecute primero el pipeline 6 (Consolidador), salvo que se indique un `--input-file` explicito.
 - El análisis temático con Claude toma su insumo desde `Datos/{semana}/`, donde primero se crea un corpus combinado sin borrar los dos materiales originales.
+- El pipeline 10 consolida publicaciones institucionales de Twitter, Facebook y YouTube en `Datos/{semana}/publicaciones_institucionales_redes_*.csv` y genera su analisis tematico comparado dentro de `Claude/{semana}/`.
 - `.gitignore` está configurado para no versionar descargas, cachés ni credenciales futuras.

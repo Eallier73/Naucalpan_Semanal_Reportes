@@ -23,15 +23,16 @@ from __future__ import annotations
 # ============================================================================
 
 YOUTUBE_CHANNELS = [
-    "monicavtampico",
+    "CiudadNaucalpan",
 ]
 """Canales de YouTube a monitorear (sin @)"""
 
 YOUTUBE_SEARCH_QUERIES = [
-    "presidenta municipal de Tampico",
-    "Presidenta municipal de Tampico",
-    "Gobierno de Tampico",
-    "gobierno de Tampico",
+    "presidente municipal de naucalpan",
+    "Gobierno de Naucalpan",
+    "gobierno de naucalpan",
+    "guardia municipal de naucalpan",
+    "ciudad naucalpan",
 ]
 """Consultas para buscar videos en YouTube"""
 
@@ -47,15 +48,16 @@ YOUTUBE_DEFAULT_MAX_VIDEOS_CHANNEL = 300
 # ============================================================================
 
 TWITTER_SEARCH_QUERIES = [
-    "to:MonicaVTampico",
-    "from:MonicaVTampico",
-    "to:TampicoGob",
-    "from:TampicoGob",
-    "@TampicoGob",
-    "@MonicaVTampico",
-    "monica villarreal",
-    "gobierno de tampico",
-    "tampico",
+    "to:isaacsolar",
+    "from:isaacsolar",
+    "to:GobNau",
+    "from:GobNau",
+    "@GobNau",
+    "@isaacsolar",
+    "isaac montoya",
+    "gobierno de naucalpan",
+    "naucalpan",
+    "guardia municipal de naucalpan",
 ]
 """Queries para buscar tweets en Twitter/X"""
 
@@ -75,14 +77,15 @@ TWITTER_DEFAULT_MAX_REPLY_SCROLLS = 8
 
 MEDIOS_SITES = [
     "site:oem.com.mx",
-    "site:milenio.com",
+    "site:diariodenaucalpan.com",
 ]
 """Sitios de medios a monitorear para noticias"""
 
 MEDIOS_SEARCH_TERMS = [
-    '"Monica Villarreal"',
-    '"gobierno de tampico"',
-    '"tampico"',
+    '"Isaac Montoya"',
+    '"gobierno de naucalpan"',
+    '"naucalpan"',
+    '"guardia municipal de naucalpan"',
 ]
 """Términos de búsqueda para noticias"""
 
@@ -101,8 +104,9 @@ MEDIOS_DEFAULT_PAUSE_BETWEEN_RSS_QUERIES = 3.0
 # ============================================================================
 
 FACEBOOK_PAGES = [
-    "TampicoGob",
-    "monicavtampico",
+    "GuardiaMunicipalCiudadNaucalpan",
+    "isaacmontoya24",
+    "CiudadNaucalpan",
 ]
 """Páginas de Facebook a monitorear (handles o URLs)"""
 

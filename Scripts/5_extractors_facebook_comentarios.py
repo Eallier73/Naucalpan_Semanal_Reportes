@@ -42,13 +42,14 @@ from urllib.request import Request, urlopen
 import pandas as pd
 
 from output_naming import build_report_tag, ensure_tagged_name
+from queries_config import FACEBOOK_PAGES
 
 
 ACTOR_COMMENTS = "apify/facebook-comments-scraper"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_BASE_DIR = str(REPO_ROOT / "Facebook")
 DEFAULT_URLS_BASE_DIR = str(REPO_ROOT / "Facebook")
-DEFAULT_PAGES = ["monicavtampico", "TampicoGob"]
+DEFAULT_PAGES = [*FACEBOOK_PAGES]
 
 
 # ============================================================================
@@ -791,7 +792,7 @@ Uso:
 
   1) Generar posts (usar extractor 5):
       python 4_extractors_facebook_posts.py \
-       --pages TampicoGob monicavtampico \\
+       --pages GuardiaMunicipalCiudadNaucalpan isaacmontoya24 CiudadNaucalpan \\
        --since 2026-03-01 --before 2026-03-12 \\
        --output-dir ./Facebook
 

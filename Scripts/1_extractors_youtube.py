@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Dict, List, Sequence
 
 from output_naming import build_report_tag
+from queries_config import YOUTUBE_CHANNELS, YOUTUBE_SEARCH_QUERIES
 
 try:
     import googleapiclient.discovery as google_discovery
@@ -61,13 +62,10 @@ DEFAULT_END_DATE_STR = "2026-03-31"
 DEFAULT_RANGE_DAYS = 15
 
 DEFAULT_SEARCH_QUERIES = [
-    "presidenta municipal de Tampico",
-    "Presidenta municipal de Tampico",
-    "Gobierno de Tampico",
-    "gobierno de Tampico",
+    *YOUTUBE_SEARCH_QUERIES,
 ]
 
-DEFAULT_CHANNEL_HANDLES = ["monicavtampico"]
+DEFAULT_CHANNEL_HANDLES = [*YOUTUBE_CHANNELS]
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_BASE_DIR = str(REPO_ROOT / "Youtube")

@@ -1,175 +1,119 @@
 # Centralizacion de Queries - Mapa Visual
 
-Esta es una guía visual de dónde se encuentran todas las queries y cómo se conectan los archivos.
+Esta guia resume donde vive la configuracion de queries y como fluye hacia el resto del pipeline.
 
-## 📦 Arquitectura
+## Arquitectura
 
-```
-Tampico_Semanal_Reportes/
-│
+```text
+Naucalpan_Semanal_Reportes/
+|
 ├── Scripts/
-│   ├── 00_orquestador_general.py  ← Importa de queries_config.py
-│   │
-│   ├── queries_config.py           ← ✨ ARCHIVO CENTRAL DE QUERIES ✨
+│   ├── queries_config.py           ← fuente central de queries
 │   │   ├── YOUTUBE_*
 │   │   ├── TWITTER_*
 │   │   ├── MEDIOS_*
 │   │   └── FACEBOOK_*
 │   │
-│   ├── 1_extractors_youtube.py     ← (Por actualizar para usar queries_config)
-│   ├── 2_extractors_twitter.py     ← (Por actualizar para usar queries_config)
-│   ├── 3_extractors_medios.py      ← (Por actualizar para usar queries_config)
-│   ├── 4_extractors_facebook_comentarios.py  ← (Por actualizar)
-│   └── 5_extractors_facebook_posts.py        ← (Por actualizar)
+│   ├── 00_orquestador_general.py  ← importa la configuracion central
+│   ├── 1_extractors_youtube.py    ← usa queries_config.py
+│   ├── 2_extractors_twitter.py    ← usa queries_config.py
+│   ├── 3_extractors_medios.py     ← usa queries_config.py
+│   ├── 4_extractors_facebook_posts.py         ← usa queries_config.py
+│   └── 5_extractors_facebook_comentarios.py   ← usa queries_config.py
 │
-└── QUERIES_CONFIG_GUIDE.md         ← Documentación de uso
+└── QUERIES_CONFIG_GUIDE.md        ← documentacion de uso
 ```
 
-## 🔄 Flujo de datos
+## Flujo de datos
 
-```
+```text
 Usuario modifica queries_config.py
             ↓
 00_orquestador_general.py importa cambios
             ↓
-Orquestador construye comandos con queries actualizadas
+Extractores toman defaults desde queries_config.py
             ↓
-Extractores se ejecutan con nuevas queries
-            ↓
-Datos se descargan y procesan
+Se ejecutan busquedas y descargas con la nueva configuracion
 ```
 
-## 📋 Tabla de Contenidos
+## Estado actual
 
 | Extractor | Archivo | Queries en queries_config.py | Estado |
 |-----------|---------|------------------------------|--------|
-| **YouTube** | `1_extractors_youtube.py` | `YOUTUBE_CHANNELS`, `YOUTUBE_SEARCH_QUERIES` | ⏳ Por actualizar |
-| **Twitter** | `2_extractors_twitter.py` | `TWITTER_SEARCH_QUERIES` | ⏳ Por actualizar |
-| **Medios** | `3_extractors_medios.py` | `MEDIOS_SITES`, `MEDIOS_SEARCH_TERMS` | ⏳ Por actualizar |
-| **Facebook Comentarios** | `4_extractors_facebook_comentarios.py` | `FACEBOOK_PAGES` | ⏳ Por actualizar |
-| **Facebook Posts** | `5_extractors_facebook_posts.py` | `FACEBOOK_PAGES` | ⏳ Por actualizar |
-| **Orquestador** | `00_orquestador_general.py` | Todos (importados) | ✅ Actualizado |
+| **YouTube** | `1_extractors_youtube.py` | `YOUTUBE_CHANNELS`, `YOUTUBE_SEARCH_QUERIES` | ✅ Actualizado |
+| **Twitter** | `2_extractors_twitter.py` | `TWITTER_SEARCH_QUERIES` | ✅ Actualizado |
+| **Medios** | `3_extractors_medios.py` | `MEDIOS_SITES`, `MEDIOS_SEARCH_TERMS` | ✅ Actualizado |
+| **Facebook Posts** | `4_extractors_facebook_posts.py` | `FACEBOOK_PAGES` | ✅ Actualizado |
+| **Facebook Comentarios** | `5_extractors_facebook_comentarios.py` | `FACEBOOK_PAGES` | ✅ Actualizado |
+| **Orquestador** | `00_orquestador_general.py` | Todos | ✅ Actualizado |
 
-## 📍 Ubicación de cada query
+## Configuracion vigente
 
 ### YouTube
-```python
-# En: Scripts/queries_config.py
 
+```python
 YOUTUBE_CHANNELS = [
-    "monicavtampico",
+    "CiudadNaucalpan",
 ]
 
 YOUTUBE_SEARCH_QUERIES = [
-    "presidenta municipal de Tampico",
-    "Presidenta municipal de Tampico",
-    "Gobierno de Tampico",
-    "gobierno de Tampico",
+    "presidente municipal de naucalpan",
+    "Gobierno de Naucalpan",
+    "gobierno de naucalpan",
+    "guardia municipal de naucalpan",
+    "ciudad naucalpan",
 ]
 ```
-**Usado por:** Orquestador (✅), 1_extractors_youtube.py (⏳)
-
----
 
 ### Twitter/X
-```python
-# En: Scripts/queries_config.py
 
+```python
 TWITTER_SEARCH_QUERIES = [
-    "to:MonicaVTampico",
-    "from:MonicaVTampico",
-    "to:TampicoGob",
-    "from:TampicoGob",
-    "@TampicoGob",
-    "@MonicaVTampico",
-    "monica villarreal",
-    "gobierno de tampico",
-    "tampico",
+    "to:isaacsolar",
+    "from:isaacsolar",
+    "to:GobNau",
+    "from:GobNau",
+    "@GobNau",
+    "@isaacsolar",
+    "isaac montoya",
+    "gobierno de naucalpan",
+    "naucalpan",
+    "guardia municipal de naucalpan",
 ]
 ```
-**Usado por:** Orquestador (✅), 2_extractors_twitter.py (⏳)
 
----
+### Medios
 
-### Medios (Google News RSS)
 ```python
-# En: Scripts/queries_config.py
-
 MEDIOS_SITES = [
     "site:oem.com.mx",
-    "site:milenio.com",
+    "site:diariodenaucalpan.com",
 ]
 
 MEDIOS_SEARCH_TERMS = [
-    '"Monica Villarreal"',
-    '"gobierno de tampico"',
-    '"tampico"',
+    '"Isaac Montoya"',
+    '"gobierno de naucalpan"',
+    '"naucalpan"',
+    '"guardia municipal de naucalpan"',
 ]
 ```
-**Usado por:** Orquestador (✅), 3_extractors_medios.py (⏳)
-
----
 
 ### Facebook
-```python
-# En: Scripts/queries_config.py
 
+```python
 FACEBOOK_PAGES = [
-    "TampicoGob",
-    "monicavtampico",
+    "GuardiaMunicipalCiudadNaucalpan",
+    "isaacmontoya24",
+    "CiudadNaucalpan",
 ]
 ```
-**Usado por:** Orquestador (✅), 4_extractors_facebook_comentarios.py (⏳), 5_extractors_facebook_posts.py (⏳)
 
----
+## Nota de medios
 
-## 🔨 Cómo actualizar un extractor
+El extractor de medios trabaja con Google News RSS. Por eso la configuracion usa filtros `site:` compatibles con ese flujo, aunque la referencia operativa incluya rutas mas especificas como la seccion de Naucalpan en OEM.
 
-### Ejemplo: Actualizar `1_extractors_youtube.py`
+## Referencias
 
-**Paso 1:** Agregar import al inicio del archivo
-```python
-from queries_config import YOUTUBE_CHANNELS, YOUTUBE_SEARCH_QUERIES
-```
-
-**Paso 2:** Reemplazar las definiciones locales
-```python
-# ANTES:
-DEFAULT_YOUTUBE_CHANNELS = ["monicavtampico"]
-DEFAULT_YOUTUBE_QUERIES = ["presidenta municipal...", ...]
-
-# DESPUÉS:
-DEFAULT_YOUTUBE_CHANNELS = YOUTUBE_CHANNELS
-DEFAULT_YOUTUBE_QUERIES = YOUTUBE_SEARCH_QUERIES
-```
-
-**Paso 3:** Verificar que el script sigue funcionando normalmente
-
-## 🎯 Ventajas de esta centralización
-
-| Ventaja | Descripción |
-|---------|------------|
-| 📝 **Mantenimiento** | Todas las queries en un solo lugar |
-| 🔄 **Consistencia** | Mismo conjunto de queries en todos los extractores |
-| 🚀 **Rápido cambio** | Modificar queries sin editar múltiples scripts |
-| 📊 **Auditoría** | Fácil ver historial de cambios en git |
-| 🧪 **Testing** | Probar nuevas queries sin tocar código de extractores |
-| 👥 **Colaboración** | Cambios centralizados para todo el equipo |
-
-## 📌 Roadmap de migración
-
-1. **Fase 1** (✅ Completada): Crear `queries_config.py` y actualizar `00_orquestador_general.py`
-2. **Fase 2** (Próxima): Actualizar extractores individuales para importar de `queries_config.py`
-   - 1_extractors_youtube.py
-   - 2_extractors_twitter.py
-   - 3_extractors_medios.py
-   - 4_extractors_facebook_comentarios.py
-   - 5_extractors_facebook_posts.py
-
-3. **Fase 3**: Validar que todos los extractores usan la configuración centralizada
-
-## 🔗 Referencias
-
-- [Guía de uso de queries_config.py](./QUERIES_CONFIG_GUIDE.md)
+- [Guia de uso de queries_config.py](./QUERIES_CONFIG_GUIDE.md)
 - [`Scripts/queries_config.py`](./Scripts/queries_config.py)
 - [`Scripts/00_orquestador_general.py`](./Scripts/00_orquestador_general.py)

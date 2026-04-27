@@ -25,6 +25,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from output_naming import build_report_tag
+from queries_config import TWITTER_SEARCH_QUERIES
 
 try:
     from playwright.async_api import async_playwright
@@ -34,7 +35,7 @@ except Exception as exc:
     PLAYWRIGHT_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
 
 # =========================
-# CONFIGURACIÓN TAMPICO
+# CONFIGURACIÓN NAUCALPAN
 # =========================
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_BASE_DIR = REPO_ROOT / "Twitter"
@@ -44,24 +45,16 @@ CONFIG_END_DATE_STR = "2026-03-31"
 DEFAULT_MAX_TWEETS = 3000
 
 # Usuarios objetivo y términos principales
-TARGET_HANDLES = ["@MonicaVTampico", "@TampicoGob"]
+TARGET_HANDLES = ["@isaacsolar", "@GobNau"]
 
 INSTITUTIONAL_POST_QUERIES = {
-    "from:TampicoGob",
-    "from:MonicaVTampico",
+    "from:GobNau",
+    "from:isaacsolar",
 }
 
 # Consultas base (sin rango de fechas)
 SEARCH_QUERIES = [
-    "to:MonicaVTampico",
-    "from:MonicaVTampico",
-    "to:TampicoGob",
-    "from:TampicoGob",
-    "@TampicoGob",
-    "@MonicaVTampico",
-    "monica villarreal",
-    "gobierno de tampico",
-    "tampico"
+    *TWITTER_SEARCH_QUERIES,
 ]
 
 # Respuestas

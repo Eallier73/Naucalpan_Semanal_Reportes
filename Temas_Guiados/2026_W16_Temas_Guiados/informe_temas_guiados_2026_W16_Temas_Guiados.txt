@@ -1,0 +1,42 @@
+ANALISIS DE TEMAS GUIADOS POR PALABRAS CLAVE
+========================================================================
+
+Semana: 2026_W16_Temas_Guiados
+Documentos analizados: 1,279
+No clasificados: 1,026
+Fecha de ejecucion: 2026-04-13 12:09:19
+
+DISTRIBUCION POR TEMA
+------------------------------------------------------------------------
+Tema 0 - Servicios: 24 docs (1.88%)
+Tema 1 - Seguridad: 118 docs (9.23%)
+Tema 2 - Vialidades: 28 docs (2.19%)
+Tema 3 - Obras y proyectos: 14 docs (1.09%)
+Tema 4 - Morena (+ / neutro): 16 docs (1.25%)
+Tema 5 - Morena (-): 28 docs (2.19%)
+Tema 6 - Corrupcion: 25 docs (1.95%)
+No clasificados: 1,026 docs (80.22%)
+
+TOP PALABRAS POR TEMA
+------------------------------------------------------------------------
+Tema 0 - Servicios:
+  luz (7), agua (5), tiradero (2), inundaciones (2), poste (2), sed (2), alumbrado (1), luces (1), basura (1), bolsa (1), suministro (1), electrico (1), corte (1), oscuro (1), tirar (1)
+
+Tema 1 - Seguridad:
+  policia (21), seguridad (19), delincuentes (19), crimen (17), delincuencia (13), proteccion (11), guardia (9), peligro (8), detenido (7), criminal (5), inseguridad (5), delincuente (5), secuestro (4), robos (3), vigilancia (2)
+
+Tema 2 - Vialidades:
+  calles (8), calle (7), avenidas (3), olor (3), vialidad (2), repavimentacion (2), baches (2), camino (2), carretera (2), coladera (1), vial (1), pavimentacion (1), transito (1), aguas (1), banqueta (1)
+
+Tema 3 - Obras y proyectos:
+  obra (8), construccion (3), proyecto (3), rehabilitacion (2), desarrollo (2), puente (1), obras (1)
+
+Tema 4 - Morena (+ / neutro):
+  lopez (7), obrador (5), amlo (4), movimiento (3), sheinbaum (2), morenistas (2), transformacion (1)
+
+Tema 5 - Morena (-):
+  corruptos (10), corrupcion (9), narcomorena (9), rateros (3), narcogobierno (3), cartel (2), dictadura (2), ladrones (2), morenarcos (1), censura (1), fraude (1), mentirosos (1), narcoestado (1)
+
+Tema 6 - Corrupcion:
+  corruptos (10), corrupcion (9), corrupto (8), complicidad (5), coludidos (5), complice (3), complices (3), mochada (1), coludido (1), coludidas (1), chayote (1), fraudes (1), fraude (1), chayotera (1), corruptas (1)
+
