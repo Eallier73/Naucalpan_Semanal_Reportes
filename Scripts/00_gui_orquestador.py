@@ -8,7 +8,7 @@ import threading
 import tkinter as tk
 from datetime import date, datetime
 from pathlib import Path
-from tkinter import messagebox, scrolledtext, simpledialog, ttk
+from tkinter import filedialog, messagebox, scrolledtext, simpledialog, ttk
 
 
 def manual_load_dotenv(path: Path) -> bool:
@@ -154,6 +154,20 @@ class OrquestadorGUI:
             font=("Helvetica", 8),
         ).grid(row=1, column=0, sticky=tk.W, padx=20)
 
+        # Nueva sección para Tipo de Pipeline y Carpeta Especial
+        mode_select_frame = ttk.LabelFrame(main_frame, text="Modo de Pipeline", padding="10")
+        mode_select_frame.pack(fill=tk.X, pady=5)
+
+        self.pipeline_type_var = tk.StringVar(value="semanal")
+        ttk.Radiobutton(mode_select_frame, text="Semanal (Estándar)", variable=self.pipeline_type_var, value="semanal").grid(row=0, column=0, sticky=tk.W, padx=5)
+        ttk.Radiobutton(mode_select_frame, text="Periódico (Por carpetas)", variable=self.pipeline_type_var, value="periodico").grid(row=0, column=1, sticky=tk.W, padx=5)
+        ttk.Radiobutton(mode_select_frame, text="Conjunto (Todo unido)", variable=self.pipeline_type_var, value="conjunto").grid(row=0, column=2, sticky=tk.W, padx=5)
+
+        ttk.Label(mode_select_frame, text="Carpeta Especial:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        self.special_folder_var = tk.StringVar()
+        ttk.Entry(mode_select_frame, textvariable=self.special_folder_var, width=50).grid(row=1, column=1, columnspan=2, sticky=tk.W, padx=5)
+        ttk.Button(mode_select_frame, text="Buscar...", command=self.browse_special_folder).grid(row=1, column=3, padx=5)
+
         date_frame = ttk.LabelFrame(main_frame, text="Configuración Temporal", padding="10")
         date_frame.pack(fill=tk.X, pady=5)
 
@@ -237,6 +251,11 @@ class OrquestadorGUI:
         )
         self.log_area.pack(fill=tk.BOTH, expand=True)
 
+    def browse_special_folder(self):
+        directory = filedialog.askdirectory(initialdir=str(REPO_ROOT))
+        if directory:
+            self.special_folder_var.set(directory)
+
     def update_dates_from_week(self):
         week = self.iso_week_var.get().strip()
         try:
@@ -313,6 +332,13 @@ class OrquestadorGUI:
             messagebox.showwarning("Atención", "Selecciona al menos un pipeline para ejecutar.")
             return
 
+        pipeline_type = self.pipeline_type_var.get()
+        special_folder = self.special_folder_var.get().strip()
+
+        if pipeline_type in ["periodico", "conjunto"] and not special_folder:
+            messagebox.showwarning("Atención", "Debes seleccionar una Carpeta Especial para este tipo de pipeline.")
+            return
+
         since = self.since_var.get().strip()
         before = self.before_var.get().strip()
 
@@ -343,7 +369,11 @@ class OrquestadorGUI:
         self.root.update_idletasks()
         self.stop_requested = False
 
-        thread = threading.Thread(target=self.run_pipelines, args=(prepared, since), daemon=True)
+        thread = threading.Thread(
+            target=self.run_pipelines_orchestrator,
+            args=(selected, since, before, pipeline_type, special_folder),
+            daemon=True
+        )
         thread.start()
 
     def stop_execution(self):
@@ -456,7 +486,7 @@ class OrquestadorGUI:
             for name, value in original.items():
                 setattr(ORQUESTADOR, name, value)
 
-    def prepare_pipelines(self, selected, since: str, before: str):
+    def prepare_pipelines(self, selected, since: str, before: str, is_periodico: bool = False):
         use_defaults = self.mode_var.get() == "all_networks"
         facebook_posts_csv = ""
         prepared = []
@@ -471,13 +501,116 @@ class OrquestadorGUI:
                     before,
                     use_defaults=use_defaults,
                     facebook_posts_csv=facebook_posts_csv,
+                    is_periodico=is_periodico,
                 )
                 prepared.append((spec, cmd, env))
 
         return prepared
 
+    def run_pipelines_orchestrator(self, selected, since, before, pipeline_type, special_folder):
+        try:
+            if pipeline_type == "semanal":
+                prepared = self.prepare_pipelines(selected, since, before)
+                self.run_pipelines(prepared, since)
+            elif pipeline_type == "periodico":
+                self.run_periodico(selected, since, before, special_folder)
+            elif pipeline_type == "conjunto":
+                self.run_conjunto(selected, since, before, special_folder)
+        finally:
+            self.finish_ui()
+
+    def run_periodico(self, selected, since, before, special_folder):
+        parent_path = Path(special_folder)
+        if not parent_path.exists():
+            self.log(f"❌ La carpeta madre no existe: {special_folder}")
+            return
+
+        # Filtrar carpetas (periodos)
+        periodos = [d for d in parent_path.iterdir() if d.is_dir() and not d.name.endswith("_Datos") and not d.name == "analisis_conjunto"]
+        periodos.sort()
+
+        if not periodos:
+            self.log(f"⚠️ No se encontraron carpetas de periodos en {special_folder}")
+            return
+
+        self.log(f"📂 Detectados {len(periodos)} periodos para analizar.")
+
+        for p_dir in periodos:
+            if self.stop_requested: break
+            self.log(f"\n{'='*60}")
+            self.log(f"🔄 PROCESANDO PERIODO: {p_dir.name}")
+            self.log(f"{'='*60}")
+
+            # En modo periodico, 'since' para el consolidador sera el nombre de la carpeta
+            # Pasamos p_dir.name como 'since' y activamos is_periodico=True
+            prepared = self.prepare_pipelines(selected, p_dir.name, before, is_periodico=True)
+
+            # Ajustar base_dir de los comandos para que apunten a la carpeta del periodo
+            adjusted_prepared = []
+            for spec, cmd, env in prepared:
+                # Modificamos --base-dir y --output-dir para que apunten a la carpeta del periodo
+                new_cmd = []
+                for part in cmd:
+                    if part == str(REPO_ROOT):
+                        new_cmd.append(str(p_dir))
+                    else:
+                        new_cmd.append(part)
+                adjusted_prepared.append((spec, new_cmd, env))
+
+            self.run_pipelines(adjusted_prepared, p_dir.name)
+
+    def run_conjunto(self, selected, since, before, special_folder):
+        parent_path = Path(special_folder)
+        conjunto_dir = parent_path / "analisis_conjunto"
+        conjunto_dir.mkdir(exist_ok=True)
+
+        self.log(f"\n{'='*60}")
+        self.log(f"🏗️ INICIANDO ANÁLISIS CONJUNTO")
+        self.log(f"{'='*60}")
+        self.log(f"Carpeta destino: {conjunto_dir}")
+
+        # Para el analisis conjunto, necesitamos consolidar TODO.
+        # Esto requiere una logica especial en el consolidador o ejecutarlo de forma que tome todo.
+        # Como el consolidador actual toma de subcarpetas Twitter, Facebook, etc.
+        # Tendriamos que haber movido/copiado todo a una estructura que el consolidador entienda.
+        # O, mas simple, creamos un consolidador ad-hoc aqui o modificamos el 6_consolidador para aceptar multiples bases.
+
+        # Segun el issue: "deben de consolidar todos los datos de todos los periodos y a partir de ahi,
+        # el pipeline debe ejecutar el analisis con esos datos consilidados"
+
+        # Vamos a preparar el comando del consolidador especificamente para 'conjunto'
+        prepared = self.prepare_pipelines(selected, "conjunto", before, is_periodico=True)
+
+        adjusted_prepared = []
+        for spec, cmd, env in prepared:
+            if spec.code == "6": # Consolidador
+                # El consolidador necesita leer de TODAS las carpetas de periodos.
+                # Una forma es pasarle el special_folder como base_dir y que el sepa buscar.
+                # Pero nuestra modificacion de 6_consolidador es simple.
+                # Vamos a hacer que el consolidador en modo conjunto sea especial.
+                new_cmd = []
+                for part in cmd:
+                    if part == str(REPO_ROOT):
+                        new_cmd.append(str(special_folder))
+                    else:
+                        new_cmd.append(part)
+                # Añadir flag especial si fuera necesario, pero usaremos --periodico y --since conjunto
+                adjusted_prepared.append((spec, new_cmd, env))
+            else:
+                # El resto del pipeline usa los datos consolidados en special_folder/conjunto_Datos
+                new_cmd = []
+                for part in cmd:
+                    if part == str(REPO_ROOT):
+                        new_cmd.append(str(special_folder))
+                    else:
+                        new_cmd.append(part)
+                adjusted_prepared.append((spec, new_cmd, env))
+
+        self.run_pipelines(adjusted_prepared, "conjunto")
+
     def run_pipelines(self, prepared, since: str):
         use_defaults = self.mode_var.get() == "all_networks"
+        pipeline_type = self.pipeline_type_var.get()
         facebook_posts_csv = ""
         cleaned_week_dirs = set()
 
@@ -494,7 +627,7 @@ class OrquestadorGUI:
                 self.log(f"Comando: {render_command(cmd)}")
 
                 week_dir = weekly_output_dir_for_command(spec, since, cmd)
-                if week_dir is not None:
+                if pipeline_type == "semanal" and week_dir is not None:
                     week_dir_key = str(week_dir.resolve())
                     if week_dir_key not in cleaned_week_dirs and week_dir.exists():
                         self.log(f"🧹 Eliminando resultado previo: {week_dir}")

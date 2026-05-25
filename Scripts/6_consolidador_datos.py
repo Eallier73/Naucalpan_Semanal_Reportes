@@ -31,16 +31,46 @@ from output_naming import build_report_tag
 # Definición de fuentes
 # ---------------------------------------------------------------------------
 
-def _sources(since: str, base_dir: Path) -> dict[str, list[Path]]:
+def _sources(since: str, base_dir: Path, is_periodico: bool = False) -> dict[str, list[Path]]:
     """
     Devuelve dos listas de paths (pueden no existir):
       "institucional": posts oficiales
       "comentarios":   reacciones ciudadanas
     """
-    tw  = build_report_tag(since, "Twitter")
-    fb  = build_report_tag(since, "Facebook")
-    yt  = build_report_tag(since, "Youtube")
-    med = build_report_tag(since, "Medios")
+    if is_periodico:
+        if since == "conjunto":
+            # Modo conjunto: buscamos en TODAS las subcarpetas de base_dir que parezcan periodos
+            # y que contengan carpetas de redes.
+            institucional = []
+            comentarios = []
+            
+            # Buscar subcarpetas que NO sean 'analisis_conjunto' ni terminen en '_Datos'
+            for p_dir in base_dir.iterdir():
+                if p_dir.is_dir() and p_dir.name != "analisis_conjunto" and not p_dir.name.endswith("_Datos"):
+                    tag = p_dir.name
+                    institucional.extend([
+                        p_dir / "Twitter" / f"{tag}_Twitter" / f"{tag}_Twitter_post_institucionales.txt",
+                        p_dir / "Facebook" / f"{tag}_Facebook" / f"{tag}_Facebook_posts.txt",
+                        p_dir / "Youtube" / f"{tag}_Youtube" / f"{tag}_Youtube_scripts.txt",
+                    ])
+                    comentarios.extend([
+                        p_dir / "Twitter" / f"{tag}_Twitter" / f"{tag}_Twitter_comentarios.txt",
+                        p_dir / "Facebook" / f"{tag}_Facebook" / f"{tag}_Facebook_comentarios.txt",
+                        p_dir / "Youtube" / f"{tag}_Youtube" / f"{tag}_Youtube_comentarios.txt",
+                        p_dir / "Medios" / f"{tag}_Medios" / f"noticias_naucalpan_{tag}_Medios.txt",
+                    ])
+            return {"institucional": institucional, "comentarios": comentarios}
+
+        # En modo periodico individual...
+        tw = f"{since}_Twitter"
+        fb = f"{since}_Facebook"
+        yt = f"{since}_Youtube"
+        med = f"{since}_Medios"
+    else:
+        tw  = build_report_tag(since, "Twitter")
+        fb  = build_report_tag(since, "Facebook")
+        yt  = build_report_tag(since, "Youtube")
+        med = build_report_tag(since, "Medios")
 
     institucional = [
         base_dir / "Twitter" / tw  / f"{tw}_post_institucionales.txt",
@@ -104,14 +134,16 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Consolida .txt de todos los extractores en material_institucional.txt y material_comentarios.txt"
     )
-    parser.add_argument("--since", required=True, type=valid_date,
-                        help="Fecha inicio YYYY-MM-DD (define la semana ISO)")
-    parser.add_argument("--before", required=True, type=valid_date,
+    parser.add_argument("--since", required=True,
+                        help="Fecha inicio YYYY-MM-DD o tag de periodo")
+    parser.add_argument("--before", required=False,
                         help="Fecha fin YYYY-MM-DD (heredado del orquestador)")
     parser.add_argument("--base-dir", default=str(REPO_ROOT),
                         help=f"Raíz del repositorio (default: {REPO_ROOT})")
     parser.add_argument("--output-dir", default=None,
                         help="Carpeta base de salida (default: <base-dir>/Datos)")
+    parser.add_argument("--periodico", action="store_true",
+                        help="Usa lógica de carpetas por periodo en lugar de semanas ISO")
     return parser.parse_args()
 
 
@@ -120,16 +152,23 @@ def main() -> None:
     base_dir = Path(args.base_dir)
     output_base = Path(args.output_dir) if args.output_dir else base_dir / "Datos"
 
-    datos_tag = build_report_tag(args.since, "Datos")
-    output_dir = output_base / datos_tag
+    if args.periodico:
+        datos_tag = f"{args.since}_Datos"
+        output_dir = output_base / datos_tag
+    else:
+        datos_tag = build_report_tag(args.since, "Datos")
+        output_dir = output_base / datos_tag
 
     print("\n" + "=" * 70)
-    print("📦 CONSOLIDADOR DE DATOS SEMANALES")
+    if args.periodico:
+        print("📦 CONSOLIDADOR DE DATOS POR PERIODO")
+    else:
+        print("📦 CONSOLIDADOR DE DATOS SEMANALES")
     print("=" * 70)
-    print(f"Semana : {datos_tag}")
+    print(f"Tag    : {datos_tag}")
     print(f"Salida : {output_dir}")
 
-    sources = _sources(args.since, base_dir)
+    sources = _sources(args.since, base_dir, is_periodico=args.periodico)
 
     # ── Material institucional ──
     print("\n── Material institucional ──")

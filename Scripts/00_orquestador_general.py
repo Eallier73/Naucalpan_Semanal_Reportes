@@ -502,7 +502,7 @@ def build_facebook_comentarios(since: str, before: str, use_defaults: bool = Fal
     return cmd, env
 
 
-def build_consolidador_datos(since: str, before: str, use_defaults: bool = False) -> tuple[list[str], dict[str, str]]:
+def build_consolidador_datos(since: str, before: str, use_defaults: bool = False, is_periodico: bool = False) -> tuple[list[str], dict[str, str]]:
     if use_defaults:
         base_dir = str(REPO_ROOT)
         output_dir = str(REPO_ROOT / "Datos")
@@ -519,6 +519,8 @@ def build_consolidador_datos(since: str, before: str, use_defaults: bool = False
         "--base-dir", base_dir,
         "--output-dir", output_dir,
     ]
+    if is_periodico:
+        cmd.append("--periodico")
     return cmd, {}
 
 
@@ -691,7 +693,7 @@ def build_analisis_seguridad(use_defaults: bool = False) -> tuple[list[str], dic
     return cmd, {}
 
 
-def build_pipeline(spec: PipelineSpec, since: str, before: str, use_defaults: bool = False, facebook_posts_csv: str = "") -> tuple[list[str], dict[str, str]]:
+def build_pipeline(spec: PipelineSpec, since: str, before: str, use_defaults: bool = False, facebook_posts_csv: str = "", is_periodico: bool = False) -> tuple[list[str], dict[str, str]]:
     if spec.key == "youtube":
         return build_youtube(since, before, use_defaults)
     if spec.key == "twitter":
@@ -712,7 +714,7 @@ def build_pipeline(spec: PipelineSpec, since: str, before: str, use_defaults: bo
     if spec.key == "facebook_comentarios":
         return build_facebook_comentarios(since, before, use_defaults, facebook_posts_csv)
     if spec.key == "consolidador_datos":
-        return build_consolidador_datos(since, before, use_defaults)
+        return build_consolidador_datos(since, before, use_defaults, is_periodico=is_periodico)
     if spec.key == "claude_nlp":
         return build_claude_nlp(since, before, use_defaults)
     if spec.key == "influencia_temas":
