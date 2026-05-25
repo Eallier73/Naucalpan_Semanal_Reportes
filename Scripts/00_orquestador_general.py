@@ -257,32 +257,19 @@ def prompt_execution_mode() -> str:
 
 def build_youtube(since: str, before: str, use_defaults: bool = False) -> tuple[list[str], dict[str, str]]:
     if use_defaults:
-        # MODO GENÉRICO: usar parámetros por defecto
-        mode = "ambos"
-        channels = DEFAULT_YOUTUBE_CHANNELS
+        # YouTube opera solo con comentarios por busqueda.
+        mode = "comentarios"
         queries = DEFAULT_YOUTUBE_QUERIES
         max_videos_query = 200
-        max_videos_channel = 300
         output_dir = str(REPO_ROOT / "Youtube")
-        proxy_http = ""
-        proxy_https = ""
         api_key = ""
     else:
-        # MODO ESPECÍFICO: preguntar parámetros
         print("\n=== YouTube ===")
-        print("  1) Transcripciones")
-        print("  2) Comentarios")
-        print("  3) Transcripciones y comentarios")
-        mode_choice = prompt_choice("Selecciona opción", ["1", "2", "3"], "3")
-        mode_map = {"1": "transcripciones", "2": "comentarios", "3": "ambos"}
-        mode = mode_map[mode_choice]
-        channels = prompt_list("Canales YouTube separados por coma", DEFAULT_YOUTUBE_CHANNELS)
+        print("  YouTube descarga solo comentarios por busqueda.")
+        mode = "comentarios"
         queries = prompt_list("Queries de búsqueda separadas por coma", DEFAULT_YOUTUBE_QUERIES)
         max_videos_query = prompt_int("Máximo de videos por query", 200)
-        max_videos_channel = prompt_int("Máximo de videos por canal", 300)
         output_dir = prompt_text("Directorio base de salida", str(REPO_ROOT / "Youtube"))
-        proxy_http = prompt_text("Proxy HTTP opcional", allow_blank=True)
-        proxy_https = prompt_text("Proxy HTTPS opcional", allow_blank=True)
         api_key = prompt_secret("YouTube API key", "YOUTUBE_API_KEY", required=True)
 
     env = {}
@@ -291,12 +278,6 @@ def build_youtube(since: str, before: str, use_defaults: bool = False) -> tuple[
     if not use_defaults and api_key:
         if api_key != os.getenv("YOUTUBE_API_KEY", ""):
             env["YOUTUBE_API_KEY"] = api_key
-
-    if not use_defaults:
-        if proxy_http:
-            env["YT_PROXY_HTTP"] = proxy_http
-        if proxy_https:
-            env["YT_PROXY_HTTPS"] = proxy_https
 
     cmd = [
         sys.executable,
@@ -307,9 +288,7 @@ def build_youtube(since: str, before: str, use_defaults: bool = False) -> tuple[
         "--mode", mode,
         "--no-prompt",
         "--max-videos-query", str(max_videos_query),
-        "--max-videos-channel", str(max_videos_channel),
     ]
-    append_many(cmd, "--channels", channels)
     append_many(cmd, "--queries", queries)
     return cmd, env
 

@@ -2,13 +2,11 @@
 Extractor automatizado de YouTube
 ================================
 
-Este script genera dos datasets principales para un rango de fechas:
-1) Comentarios encontrados por búsquedas (queries) -> CSV + TXT limpio
-2) Transcripciones de videos por canales (handles) -> CSV + TXT limpio
+Este script genera un dataset de comentarios encontrados por búsquedas
+(queries) para un rango de fechas -> CSV + TXT limpio.
 
 Ejemplo:
 python3 Youtube_Extractor_CDMX.py \
-  --channels GobCDMX ClaraBrugadaM \
   --since 2026-02-27 --before 2026-03-06
 """
 
@@ -25,7 +23,7 @@ from pathlib import Path
 from typing import Dict, List, Sequence
 
 from output_naming import build_report_tag
-from queries_config import YOUTUBE_CHANNELS, YOUTUBE_SEARCH_QUERIES
+from queries_config import YOUTUBE_SEARCH_QUERIES
 
 try:
     import googleapiclient.discovery as google_discovery
@@ -41,19 +39,6 @@ except Exception as exc:
     pd = None
     PANDAS_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
 
-try:
-    from youtube_transcript_api import YouTubeTranscriptApi
-    TRANSCRIPT_IMPORT_ERROR = ""
-except Exception as exc:
-    YouTubeTranscriptApi = None
-    TRANSCRIPT_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
-
-try:
-    from youtube_transcript_api.proxies import GenericProxyConfig
-except Exception:
-    GenericProxyConfig = None
-
-
 # =========================
 # CONFIGURACION
 # =========================
@@ -64,8 +49,6 @@ DEFAULT_RANGE_DAYS = 15
 DEFAULT_SEARCH_QUERIES = [
     *YOUTUBE_SEARCH_QUERIES,
 ]
-
-DEFAULT_CHANNEL_HANDLES = [*YOUTUBE_CHANNELS]
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_BASE_DIR = str(REPO_ROOT / "Youtube")
@@ -82,11 +65,9 @@ def valid_date(value: str) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Extractor YouTube: comentarios por busqueda + transcripciones por canal",
+        description="Extractor YouTube: comentarios por busqueda",
     )
 
-    parser.add_argument("--channels", nargs="+", default=DEFAULT_CHANNEL_HANDLES,
-                        help="Handles de canales YouTube (con o sin @)")
     parser.add_argument("--queries", nargs="+", default=DEFAULT_SEARCH_QUERIES,
                         help="Consultas para buscar videos y extraer comentarios")
 
@@ -102,27 +83,18 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--max-videos-query", type=int, default=200,
                         help="Maximo de videos por query")
-    parser.add_argument("--max-videos-channel", type=int, default=300,
-                        help="Maximo de videos por canal")
-
     parser.add_argument("--skip-comments", action="store_true",
                         help="No extraer comentarios por busquedas")
-    parser.add_argument("--skip-transcripts", action="store_true",
-                        help="No extraer transcripciones por canal")
     parser.add_argument(
         "--modo",
         "--mode",
-        choices=["comentarios", "transcripciones", "ambos"],
-        help="Que descargar: comentarios, transcripciones o ambos (si no se indica, se pregunta en consola)",
+        choices=["comentarios"],
+        help="Que descargar. YouTube opera solo en modo comentarios.",
     )
     parser.add_argument("--prompt", action="store_true",
-                        help="Fuerza modo interactivo para seleccionar que descargar")
+                        help="Compatibilidad legacy; ya no hay selector interactivo")
     parser.add_argument("--no-prompt", action="store_true",
-                        help="Desactiva preguntas interactivas y usa solo CLI/defaults")
-    parser.add_argument("--proxy-http", default=os.getenv("YT_PROXY_HTTP", ""),
-                        help="Proxy HTTP para transcripciones (http://user:pass@host:port)")
-    parser.add_argument("--proxy-https", default=os.getenv("YT_PROXY_HTTPS", ""),
-                        help="Proxy HTTPS para transcripciones (http://user:pass@host:port)")
+                        help="Compatibilidad legacy; no hay preguntas interactivas")
 
     return parser.parse_args()
 
@@ -334,37 +306,11 @@ def search_channel_videos(youtube, channel_id: str, start_date: datetime,
 
 
 def resolver_modo_descarga(args: argparse.Namespace) -> tuple[bool, bool]:
-    if args.skip_comments and args.skip_transcripts:
-        print("❌ No puedes usar --skip-comments y --skip-transcripts al mismo tiempo.")
+    if args.skip_comments:
+        print("❌ El extractor de YouTube ahora solo descarga comentarios por busqueda.")
+        print("   Quita --skip-comments o desactiva el pipeline 1 en el orquestador.")
         sys.exit(1)
-
-    if args.skip_comments or args.skip_transcripts:
-        return (not args.skip_comments), (not args.skip_transcripts)
-
-    if args.modo:
-        return args.modo in {"comentarios", "ambos"}, args.modo in {"transcripciones", "ambos"}
-
-    if args.no_prompt or not sys.stdin.isatty():
-        return True, True
-
-    print("\n📥 ¿Que quieres bajar de YouTube?")
-    print("1) Solo comentarios")
-    print("2) Solo transcripciones")
-    print("3) Ambos (comentarios + transcripciones)")
-
-    while True:
-        try:
-            respuesta = input("Selecciona opcion [1/2/3] (ENTER=3): ").strip().lower()
-        except EOFError:
-            return True, True
-
-        if respuesta in {"", "3", "ambos", "a"}:
-            return True, True
-        if respuesta in {"1", "comentarios", "c"}:
-            return True, False
-        if respuesta in {"2", "transcripciones", "t"}:
-            return False, True
-        print("⚠️ Opcion invalida. Usa 1, 2 o 3.")
+    return True, False
 
 
 def verificar_dependencias(run_comments: bool, run_transcripts: bool) -> None:
@@ -390,160 +336,6 @@ def verificar_dependencias(run_comments: bool, run_transcripts: bool) -> None:
         print("   Instala en tu env activo:")
         print("   python -m pip install -U google-api-python-client")
         sys.exit(1)
-
-    if run_transcripts and YouTubeTranscriptApi is None:
-        print("⚠️ No se pudo importar youtube-transcript-api.")
-        if TRANSCRIPT_IMPORT_ERROR:
-            print(f"   Detalle: {TRANSCRIPT_IMPORT_ERROR}")
-        print("   Se continuará, pero las transcripciones saldrán con status dependency_missing.")
-        print("   Para corregirlo en tu env activo:")
-        print("   python -m pip install -U youtube-transcript-api")
-        print()
-
-
-def construir_transcript_client(proxy_http: str, proxy_https: str):
-    if YouTubeTranscriptApi is None:
-        return None
-
-    http_proxy = (proxy_http or "").strip() or None
-    https_proxy = (proxy_https or "").strip() or None
-
-    if http_proxy or https_proxy:
-        if GenericProxyConfig is None:
-            print("⚠️ GenericProxyConfig no disponible; se ignoran proxies de transcripciones.")
-            return YouTubeTranscriptApi()
-        proxy_cfg = GenericProxyConfig(http_url=http_proxy, https_url=https_proxy)
-        return YouTubeTranscriptApi(proxy_config=proxy_cfg)
-
-    return YouTubeTranscriptApi()
-
-
-def _segmentos_a_texto(segmentos: Sequence) -> tuple[str, int]:
-    if segmentos is None:
-        return "", 0
-
-    try:
-        segmentos = list(segmentos)
-    except Exception:
-        segmentos = [segmentos]
-
-    partes = []
-    for segmento in segmentos:
-        if isinstance(segmento, dict):
-            texto = str(segmento.get("text", "")).strip()
-        else:
-            texto = str(getattr(segmento, "text", "")).strip()
-        if texto:
-            partes.append(texto)
-    return " ".join(partes).strip(), len(segmentos)
-
-
-def _obtener_lista_transcripciones(video_id: str):
-    list_method = getattr(YouTubeTranscriptApi, "list_transcripts", None)
-    if callable(list_method):
-        return list_method(video_id)
-
-    # Compatibilidad con versiones nuevas del cliente.
-    try:
-        api = YouTubeTranscriptApi()
-    except Exception:
-        return None
-
-    list_method = getattr(api, "list_transcripts", None)
-    if callable(list_method):
-        return list_method(video_id)
-
-    list_method = getattr(api, "list", None)
-    if callable(list_method):
-        return list_method(video_id)
-
-    return None
-
-
-def _fetch_por_finder(transcript_list, finder_name: str, langs: Sequence[str]):
-    finder = getattr(transcript_list, finder_name, None)
-    if not callable(finder):
-        return None
-
-    for lang in langs:
-        try:
-            transcript = finder([lang])
-            fetch = getattr(transcript, "fetch", None)
-            if callable(fetch):
-                return fetch(), lang
-        except Exception:
-            continue
-    return None
-
-
-def get_video_transcript(video_id: str, transcript_api=None,
-                         idiomas: Sequence[str] | None = None) -> tuple[str, str, str, int]:
-    if YouTubeTranscriptApi is None:
-        return "", "", "dependency_missing", 0
-
-    langs = list(idiomas or ["es", "es-MX", "es-419", "en"])
-    errores = []
-
-    # Estrategia 1: API moderna por instancia.
-    if transcript_api is not None:
-        fetch_method = getattr(transcript_api, "fetch", None)
-        if callable(fetch_method):
-            try:
-                segmentos = fetch_method(video_id, languages=langs)
-                transcript_text, n_segments = _segmentos_a_texto(segmentos)
-                status = "ok" if transcript_text else "empty"
-                return transcript_text, ",".join(langs), status, n_segments
-            except Exception as exc:
-                errores.append(type(exc).__name__)
-
-    # Estrategia 2: API clasica (versiones anteriores).
-    get_transcript_method = getattr(YouTubeTranscriptApi, "get_transcript", None)
-    if callable(get_transcript_method):
-        try:
-            segmentos = get_transcript_method(video_id, languages=langs)
-            transcript_text, n_segments = _segmentos_a_texto(segmentos)
-            status = "ok" if transcript_text else "empty"
-            return transcript_text, ",".join(langs), status, n_segments
-        except Exception as exc:
-            errores.append(type(exc).__name__)
-
-    # Estrategia 2: listar y fetch de transcripcion manual/generada.
-    try:
-        transcript_list = _obtener_lista_transcripciones(video_id)
-    except Exception as exc:
-        transcript_list = None
-        errores.append(type(exc).__name__)
-
-    if transcript_list is not None:
-        for finder_name in ("find_manually_created_transcript", "find_generated_transcript"):
-            resultado = _fetch_por_finder(transcript_list, finder_name, langs)
-            if resultado:
-                segmentos, _ = resultado
-                transcript_text, n_segments = _segmentos_a_texto(segmentos)
-                status = "ok" if transcript_text else "empty"
-                return transcript_text, ",".join(langs), status, n_segments
-
-        try:
-            transcript_items = list(transcript_list)
-        except Exception:
-            transcript_items = []
-
-        for transcript in transcript_items:
-            try:
-                fetch = getattr(transcript, "fetch", None)
-                if not callable(fetch):
-                    continue
-                segmentos = fetch()
-                transcript_text, n_segments = _segmentos_a_texto(segmentos)
-                status = "ok" if transcript_text else "empty"
-                return transcript_text, ",".join(langs), status, n_segments
-            except Exception as exc:
-                errores.append(type(exc).__name__)
-
-    if errores:
-        return "", ",".join(langs), f"error:{errores[-1]}", 0
-    return "", ",".join(langs), "error:Unknown", 0
-
 
 def normalizar_texto(texto: str) -> str:
     reemplazos = {
@@ -663,89 +455,6 @@ def extraer_comentarios_busquedas(youtube, queries: Sequence[str], start_date: d
     return df, total_videos
 
 
-def extraer_transcripciones_canales(youtube, handles: Sequence[str], start_date: datetime,
-                                    end_date: datetime, max_videos_channel: int,
-                                    transcript_api=None) -> tuple[pd.DataFrame, int]:
-    columnas = [
-        "video_id", "channel_handle", "channel_id", "channel_title", "video_title",
-        "video_published_at", "transcript_text", "idiomas_intentados", "transcript_status",
-        "segmentos_transcripcion", "fecha_extraccion",
-    ]
-
-    filas = []
-    total_videos = 0
-    videos_procesados = set()
-
-    for idx, handle in enumerate(handles, 1):
-        clean_handle = normalizar_handle(handle)
-        print(f"🎬 Canal {idx}/{len(handles)}: @{clean_handle}")
-
-        channel_id, channel_title = resolve_channel_id(youtube, clean_handle)
-        if not channel_id:
-            print(f"   ❌ No se pudo resolver canal para @{clean_handle}")
-            print()
-            continue
-
-        print(f"   ✅ Canal: {channel_title} ({channel_id})")
-
-        try:
-            video_ids = search_channel_videos(youtube, channel_id, start_date, end_date, max_videos_channel)
-        except Exception as exc:
-            print(f"   ❌ Error buscando videos de @{clean_handle}: {exc}")
-            print()
-            continue
-
-        print(f"   📺 Videos encontrados: {len(video_ids)}")
-        if not video_ids:
-            print()
-            continue
-
-        details = get_video_details(youtube, video_ids)
-
-        for j, video_id in enumerate(video_ids, 1):
-            if video_id in videos_procesados:
-                continue
-            videos_procesados.add(video_id)
-            total_videos += 1
-
-            info = details.get(video_id, {})
-            print(f"   📄 Video {j}/{len(video_ids)}: {video_id}")
-            transcript_text, langs, status, n_segments = get_video_transcript(
-                video_id,
-                transcript_api=transcript_api,
-            )
-
-            filas.append({
-                "video_id": video_id,
-                "channel_handle": f"@{clean_handle}",
-                "channel_id": channel_id,
-                "channel_title": info.get("channel_title", channel_title),
-                "video_title": info.get("title", ""),
-                "video_published_at": info.get("published_at", ""),
-                "transcript_text": transcript_text,
-                "idiomas_intentados": langs,
-                "transcript_status": status,
-                "segmentos_transcripcion": n_segments,
-                "fecha_extraccion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            })
-
-            if status == "ok":
-                print(f"      📝 Transcripcion OK ({n_segments} segmentos)")
-            else:
-                print(f"      ⚠️ Sin transcripcion ({status})")
-
-            time.sleep(0.15)
-
-        print()
-
-    if filas:
-        df = pd.DataFrame(filas)
-    else:
-        df = pd.DataFrame(columns=columnas)
-
-    return df, total_videos
-
-
 def main() -> None:
     args = parse_args()
     if args.prompt and args.no_prompt:
@@ -762,14 +471,7 @@ def main() -> None:
     print("🚀 Iniciando extracción de YouTube...")
     print(f"📅 Periodo: {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}")
     print(f"📂 Salida: {output_dir}")
-    modo_etiqueta = []
-    if run_comments:
-        modo_etiqueta.append("comentarios")
-    if run_transcripts:
-        modo_etiqueta.append("transcripciones")
-    print(f"🎯 Modo: {', '.join(modo_etiqueta)}")
-    if run_transcripts and (args.proxy_http or args.proxy_https):
-        print("🌐 Proxy de transcripciones: activado")
+    print("🎯 Modo: comentarios")
 
     if not args.api_key:
         print("❌ No hay API key de YouTube. Usa --api-key o exporta YOUTUBE_API_KEY")
@@ -782,16 +484,10 @@ def main() -> None:
         sys.exit(1)
 
     comentarios_base = f"{report_tag}_comentarios"
-    scripts_base = f"{report_tag}_scripts"
-
     comments_csv = os.path.join(output_dir, f"{comentarios_base}.csv")
     comments_txt = os.path.join(output_dir, f"{comentarios_base}.txt")
 
-    transcripts_csv = os.path.join(output_dir, f"{scripts_base}.csv")
-    transcripts_txt = os.path.join(output_dir, f"{scripts_base}.txt")
-
     total_videos_comments = 0
-    total_videos_transcripts = 0
 
     if run_comments:
         comments_df, total_videos_comments = extraer_comentarios_busquedas(
@@ -811,35 +507,6 @@ def main() -> None:
         print(f"   📺 Videos: {total_videos_comments}")
         print(f"   💬 Comentarios: {len(comments_df)}")
         print(f"   🧹 Lineas TXT: {n_lineas_busquedas}")
-        print()
-
-    if run_transcripts:
-        if YouTubeTranscriptApi is None:
-            print("⚠️ youtube-transcript-api no esta instalada. Se generara CSV con status dependency_missing.")
-
-        transcript_api = construir_transcript_client(args.proxy_http, args.proxy_https)
-        transcripts_df, total_videos_transcripts = extraer_transcripciones_canales(
-            youtube,
-            handles=args.channels,
-            start_date=start_date,
-            end_date=end_date,
-            max_videos_channel=args.max_videos_channel,
-            transcript_api=transcript_api,
-        )
-
-        transcripts_df.to_csv(transcripts_csv, index=False, encoding="utf-8-sig")
-        n_lineas_transcripciones = guardar_txt_limpio(transcripts_df, "transcript_text", transcripts_txt)
-
-        print("✅ Dataset de transcripciones guardado")
-        print(f"   📄 CSV: {transcripts_csv}")
-        print(f"   📄 TXT: {transcripts_txt}")
-        print(f"   📺 Videos: {total_videos_transcripts}")
-        print(f"   📝 Filas: {len(transcripts_df)}")
-        print(f"   🧹 Lineas TXT: {n_lineas_transcripciones}")
-        if not transcripts_df.empty and "transcript_status" in transcripts_df.columns:
-            n_ip_blocked = int((transcripts_df["transcript_status"] == "error:IpBlocked").sum())
-            if n_ip_blocked > 0:
-                print(f"   ⚠️ IpBlocked en {n_ip_blocked} videos. Usa --proxy-http/--proxy-https.")
         print()
 
     print("🏁 Proceso YouTube finalizado")

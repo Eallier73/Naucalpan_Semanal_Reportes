@@ -1,0 +1,62 @@
+{
+  "since": "2026-01-01",
+  "before": "2026-01-15",
+  "ordered_cases": [
+    "gobierno_naucalpan",
+    "isaac_montoya"
+  ],
+  "consolidated_csv": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-01-01_al_2026-01-15/Datos/2026_W01_Datos/publicaciones_institucionales_redes_2026_W01_Datos.csv",
+  "source_meta": {
+    "twitter": {
+      "source": "twitter",
+      "path": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-01-01_al_2026-01-15/Twitter/2026_W01_Twitter/2026_W01_Twitter_post_institucionales.csv",
+      "exists": true,
+      "records": 39,
+      "skipped_empty_text": 0,
+      "skipped_unknown_case": 0
+    },
+    "facebook": {
+      "source": "facebook",
+      "path": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-01-01_al_2026-01-15/Facebook/2026_W01_Facebook/2026_W01_Facebook_posts.csv",
+      "exists": true,
+      "records": 0,
+      "skipped_empty_text": 0,
+      "skipped_unknown_case": 0
+    },
+    "youtube": {
+      "source": "youtube",
+      "path": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-01-01_al_2026-01-15/Youtube/2026_W01_Youtube/2026_W01_Youtube_scripts.csv",
+      "exists": true,
+      "records": 0,
+      "skipped_empty_text": 0,
+      "skipped_unknown_case": 0,
+      "skipped_non_ok_transcript": 0
+    }
+  },
+  "stats": {
+    "total_publicaciones": 39,
+    "casos_ordenados": [
+      "gobierno_naucalpan",
+      "isaac_montoya"
+    ],
+    "por_caso": {
+      "gobierno_naucalpan": 31,
+      "isaac_montoya": 8
+    },
+    "por_red": {
+      "twitter": 39
+    },
+    "por_caso_y_red": {
+      "gobierno_naucalpan::twitter": 31,
+      "isaac_montoya::twitter": 8
+    }
+  },
+  "sampling": {
+    "sampled": false,
+    "original_chars": 15252,
+    "final_chars": 15252,
+    "original_docs": 39,
+    "final_docs": 39
+  },
+  "prepare_only": false
+}

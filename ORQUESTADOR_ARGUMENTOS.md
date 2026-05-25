@@ -18,20 +18,16 @@ Este documento resume, script por script, qué argumentos conviene pedir desde e
 
 ## 01 YouTube
 
-- Prompt propio previo: sí, solo para decidir modo de descarga.
+- Prompt propio previo: no.
 - Argumentos clave:
   - `--since`
   - `--before`
-  - `--channels`
   - `--queries`
   - `--mode`
   - `--max-videos-query`
-  - `--max-videos-channel`
   - `--output-dir`
 - Credenciales:
   - `YOUTUBE_API_KEY`
-  - `YT_PROXY_HTTP` opcional
-  - `YT_PROXY_HTTPS` opcional
 
 ## 02 Twitter/X
 

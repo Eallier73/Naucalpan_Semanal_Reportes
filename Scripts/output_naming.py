@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from datetime import date, datetime
 from pathlib import Path
@@ -40,6 +41,9 @@ def build_report_tag(
     source: str,
     fallback: str = "sin_inicio",
 ) -> str:
+    override = os.getenv("REPORT_TAG_OVERRIDE", "").strip()
+    if override:
+        return f"{override}_{_normalize_source_label(source)}"
     return f"{_normalize_date_label(run_date, fallback)}_{_normalize_source_label(source)}"
 
 

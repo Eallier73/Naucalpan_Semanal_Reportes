@@ -48,44 +48,80 @@ def _sources(since: str, base_dir: Path, is_periodico: bool = False) -> dict[str
             for p_dir in base_dir.iterdir():
                 if p_dir.is_dir() and p_dir.name != "analisis_conjunto" and not p_dir.name.endswith("_Datos"):
                     tag = p_dir.name
+                    weekly_prefix = _periodic_weekly_prefix(tag)
                     institucional.extend([
-                        p_dir / "Twitter" / f"{tag}_Twitter" / f"{tag}_Twitter_post_institucionales.txt",
-                        p_dir / "Facebook" / f"{tag}_Facebook" / f"{tag}_Facebook_posts.txt",
-                        p_dir / "Youtube" / f"{tag}_Youtube" / f"{tag}_Youtube_scripts.txt",
+                        *_candidate_paths(p_dir / "Twitter", [tag, weekly_prefix], "Twitter", "post_institucionales.txt"),
+                        *_candidate_paths(p_dir / "Facebook", [tag, weekly_prefix], "Facebook", "posts.txt"),
+                        *_candidate_paths(p_dir / "Youtube", [tag, weekly_prefix], "Youtube", "scripts.txt"),
                     ])
                     comentarios.extend([
-                        p_dir / "Twitter" / f"{tag}_Twitter" / f"{tag}_Twitter_comentarios.txt",
-                        p_dir / "Facebook" / f"{tag}_Facebook" / f"{tag}_Facebook_comentarios.txt",
-                        p_dir / "Youtube" / f"{tag}_Youtube" / f"{tag}_Youtube_comentarios.txt",
-                        p_dir / "Medios" / f"{tag}_Medios" / f"noticias_naucalpan_{tag}_Medios.txt",
+                        *_candidate_paths(p_dir / "Twitter", [tag, weekly_prefix], "Twitter", "_comentarios.txt"),
+                        *_candidate_paths(p_dir / "Facebook", [tag, weekly_prefix], "Facebook", "_comentarios.txt"),
+                        *_candidate_paths(p_dir / "Youtube", [tag, weekly_prefix], "Youtube", "_comentarios.txt"),
+                        *_candidate_paths(p_dir / "Medios", [tag, weekly_prefix], "Medios", ".txt", prefix="noticias_naucalpan_"),
                     ])
             return {"institucional": institucional, "comentarios": comentarios}
 
-        # En modo periodico individual...
-        tw = f"{since}_Twitter"
-        fb = f"{since}_Facebook"
-        yt = f"{since}_Youtube"
-        med = f"{since}_Medios"
-    else:
-        tw  = build_report_tag(since, "Twitter")
-        fb  = build_report_tag(since, "Facebook")
-        yt  = build_report_tag(since, "Youtube")
-        med = build_report_tag(since, "Medios")
+    tag_variants = _tag_variants(since, is_periodico)
 
     institucional = [
-        base_dir / "Twitter" / tw  / f"{tw}_post_institucionales.txt",
-        base_dir / "Facebook" / fb / f"{fb}_posts.txt",
-        base_dir / "Youtube"  / yt / f"{yt}_scripts.txt",
+        *_candidate_paths(base_dir / "Twitter", tag_variants, "Twitter", "_post_institucionales.txt"),
+        *_candidate_paths(base_dir / "Facebook", tag_variants, "Facebook", "_posts.txt"),
+        *_candidate_paths(base_dir / "Youtube", tag_variants, "Youtube", "_scripts.txt"),
     ]
 
     comentarios = [
-        base_dir / "Twitter"  / tw  / f"{tw}_comentarios.txt",
-        base_dir / "Facebook" / fb  / f"{fb}_comentarios.txt",
-        base_dir / "Youtube"  / yt  / f"{yt}_comentarios.txt",
-        base_dir / "Medios"   / med / f"noticias_naucalpan_{med}.txt",
+        *_candidate_paths(base_dir / "Twitter", tag_variants, "Twitter", "_comentarios.txt"),
+        *_candidate_paths(base_dir / "Facebook", tag_variants, "Facebook", "_comentarios.txt"),
+        *_candidate_paths(base_dir / "Youtube", tag_variants, "Youtube", "_comentarios.txt"),
+        *_candidate_paths(base_dir / "Medios", tag_variants, "Medios", ".txt", prefix="noticias_naucalpan_"),
     ]
 
     return {"institucional": institucional, "comentarios": comentarios}
+
+
+def _periodic_weekly_prefix(period_tag: str) -> str | None:
+    raw = (period_tag or "").strip()
+    try:
+        start_date = raw.split("_al_", 1)[0].strip()
+        return build_report_tag(start_date, "placeholder").rsplit("_", 1)[0]
+    except Exception:
+        return None
+
+
+def _tag_variants(since: str, is_periodico: bool) -> list[str]:
+    if not is_periodico:
+        weekly_prefix = build_report_tag(since, "placeholder").rsplit("_", 1)[0]
+        return [weekly_prefix]
+
+    weekly_prefix = _periodic_weekly_prefix(since)
+    variants = []
+    if weekly_prefix:
+        variants.append(weekly_prefix)
+    if since not in variants:
+        variants.append(since)
+    return variants
+
+
+def _candidate_paths(
+    base_dir: Path,
+    tag_prefixes: list[str | None],
+    source: str,
+    filename_tail: str,
+    prefix: str = "",
+) -> list[Path]:
+    candidates: list[Path] = []
+    for tag_prefix in tag_prefixes:
+        if not tag_prefix:
+            continue
+        tag = f"{tag_prefix}_{source}"
+        candidates.append(base_dir / tag / f"{prefix}{tag}{filename_tail}")
+    if not candidates:
+        return []
+    for candidate in candidates:
+        if candidate.exists():
+            return [candidate]
+    return [candidates[0]]
 
 
 # ---------------------------------------------------------------------------
@@ -151,13 +187,14 @@ def main() -> None:
     args = parse_args()
     base_dir = Path(args.base_dir)
     output_base = Path(args.output_dir) if args.output_dir else base_dir / "Datos"
-
-    if args.periodico:
-        datos_tag = f"{args.since}_Datos"
-        output_dir = output_base / datos_tag
+    if args.periodico and args.since == "conjunto":
+        datos_tag = "conjunto_Datos"
+    elif args.periodico:
+        periodic_prefix = _periodic_weekly_prefix(args.since)
+        datos_tag = f"{periodic_prefix or args.since}_Datos"
     else:
         datos_tag = build_report_tag(args.since, "Datos")
-        output_dir = output_base / datos_tag
+    output_dir = output_base / datos_tag
 
     print("\n" + "=" * 70)
     if args.periodico:

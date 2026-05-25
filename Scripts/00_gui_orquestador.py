@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 from contextlib import contextmanager
 import importlib.util
+import math
 import os
+from queue import Empty, SimpleQueue
+import shutil
+import struct
 import subprocess
 import sys
 import threading
+import tempfile
 import tkinter as tk
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from time import monotonic
 from tkinter import filedialog, messagebox, scrolledtext, simpledialog, ttk
+import wave
 
 
 def manual_load_dotenv(path: Path) -> bool:
@@ -105,6 +112,26 @@ def ensure_pipeline_before(selected, before_code: str, after_code: str):
     return selected
 
 
+PERIODO_DIR_FLAGS = {
+    "--output-dir",
+    "--base-dir",
+    "--input-dir",
+    "--twitter-dir",
+    "--facebook-dir",
+    "--youtube-dir",
+    "--datos-dir",
+}
+
+
+def remap_periodic_path(raw_value: str, period_dir: Path) -> str:
+    raw_path = Path(raw_value)
+    try:
+        relative = raw_path.resolve().relative_to(REPO_ROOT.resolve())
+    except ValueError:
+        return raw_value
+    return str(period_dir / relative)
+
+
 class PromptCancelled(Exception):
     pass
 
@@ -118,8 +145,19 @@ class OrquestadorGUI:
         self.running_process = None
         self.stop_requested = False
         self.venv_python = self.detect_venv()
+        self.log_queue = SimpleQueue()
+        self.alarm_generation = 0
+        self.audio_player = shutil.which("paplay") or shutil.which("aplay")
+        self.stage_alarm_path = None
+        self.final_alarm_path = None
+        self.current_alarm_process = None
+
+        if self.audio_player:
+            self.stage_alarm_path = self.ensure_alarm_file("stage")
+            self.final_alarm_path = self.ensure_alarm_file("final")
 
         self.setup_ui()
+        self.root.after(100, self.process_log_queue)
 
     def detect_venv(self):
         for folder in [".venv", "venv"]:
@@ -266,21 +304,126 @@ class OrquestadorGUI:
             messagebox.showerror("Error", f"Semana ISO inválida: {exc}")
 
     def log(self, message: str):
-        def _append():
-            self.log_area.config(state=tk.NORMAL)
-            self.log_area.insert(tk.END, message + "\n")
-            self.log_area.see(tk.END)
-            self.log_area.config(state=tk.DISABLED)
+        self.log_queue.put(message)
 
-        self.root.after(0, _append)
+    def process_log_queue(self):
+        messages = []
+        while True:
+            try:
+                messages.append(self.log_queue.get_nowait())
+            except Empty:
+                break
+
+        if not messages:
+            self.root.after(100, self.process_log_queue)
+            return
+
+        self.log_area.config(state=tk.NORMAL)
+        self.log_area.insert(tk.END, "\n".join(messages) + "\n")
+        self.log_area.see(tk.END)
+        self.log_area.config(state=tk.DISABLED)
+        self.root.after(100, self.process_log_queue)
 
     def clear_log(self):
         def _clear():
+            while True:
+                try:
+                    self.log_queue.get_nowait()
+                except Empty:
+                    break
             self.log_area.config(state=tk.NORMAL)
             self.log_area.delete(1.0, tk.END)
             self.log_area.config(state=tk.DISABLED)
 
         self.root.after(0, _clear)
+
+    def ensure_alarm_file(self, kind: str) -> str | None:
+        alarm_path = Path(tempfile.gettempdir()) / f"naucalpan_alarm_{kind}.wav"
+        if not alarm_path.exists():
+            self.write_alarm_wav(alarm_path, kind)
+        return str(alarm_path)
+
+    def write_alarm_wav(self, path: Path, kind: str):
+        sample_rate = 22050
+        duration_seconds = 5.0
+        total_frames = int(sample_rate * duration_seconds)
+
+        if kind == "stage":
+            segments = [
+                (0.00, 0.35, 880.0),
+                (0.80, 1.15, 880.0),
+                (1.60, 1.95, 880.0),
+                (2.40, 2.75, 880.0),
+                (3.20, 3.55, 880.0),
+                (4.00, 4.35, 880.0),
+            ]
+        else:
+            segments = [
+                (0.00, 0.45, 660.0),
+                (0.55, 1.00, 880.0),
+                (1.15, 1.85, 990.0),
+                (2.10, 2.55, 880.0),
+                (2.70, 3.40, 1100.0),
+                (3.65, 4.75, 1320.0),
+            ]
+
+        def envelope(position: float, start: float, end: float) -> float:
+            attack = 0.03
+            release = 0.08
+            if position < start or position > end:
+                return 0.0
+            if position < start + attack:
+                return (position - start) / attack
+            if position > end - release:
+                return max(0.0, (end - position) / release)
+            return 1.0
+
+        frames = bytearray()
+        for frame_index in range(total_frames):
+            t = frame_index / sample_rate
+            sample = 0.0
+            for start, end, freq in segments:
+                env = envelope(t, start, end)
+                if env:
+                    sample += math.sin(2.0 * math.pi * freq * t) * env
+            sample = max(-1.0, min(1.0, sample * 0.22))
+            pcm = int(sample * 32767)
+            frames.extend(struct.pack("<h", pcm))
+
+        with wave.open(str(path), "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(bytes(frames))
+
+    def trigger_stage_alarm(self):
+        self.play_alarm(self.stage_alarm_path)
+
+    def trigger_final_alarm(self):
+        self.play_alarm(self.final_alarm_path)
+
+    def play_alarm(self, alarm_path: str | None):
+        if not self.audio_player or not alarm_path:
+            return
+        self.alarm_generation += 1
+        try:
+            if self.current_alarm_process and self.current_alarm_process.poll() is None:
+                self.current_alarm_process.terminate()
+        except Exception:
+            pass
+
+        command = [self.audio_player, alarm_path]
+        if Path(self.audio_player).name == "aplay":
+            command = [self.audio_player, "-q", alarm_path]
+
+        try:
+            self.current_alarm_process = subprocess.Popen(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            self.current_alarm_process = None
 
     def get_selected_pipelines(self):
         selected = []
@@ -355,7 +498,19 @@ class OrquestadorGUI:
         self.log(f"Pipelines a ejecutar: {', '.join(spec.label for spec in selected)}")
 
         try:
-            prepared = self.prepare_pipelines(selected, since, before)
+            if pipeline_type == "semanal":
+                prepared = self.prepare_pipelines(selected, since, before)
+            elif pipeline_type == "periodico":
+                prepared = self.prepare_pipelines(
+                    selected,
+                    "__PERIODO_SINCE__",
+                    "__PERIODO_BEFORE__",
+                    is_periodico=True,
+                )
+            elif pipeline_type == "conjunto":
+                prepared = self.prepare_pipelines(selected, "conjunto", before, is_periodico=True)
+            else:
+                raise ValueError(f"Tipo de pipeline no soportado: {pipeline_type}")
         except PromptCancelled:
             self.log("⏹ Preparación cancelada por el usuario.")
             return
@@ -371,7 +526,7 @@ class OrquestadorGUI:
 
         thread = threading.Thread(
             target=self.run_pipelines_orchestrator,
-            args=(selected, since, before, pipeline_type, special_folder),
+            args=(prepared, since, before, pipeline_type, special_folder),
             daemon=True
         )
         thread.start()
@@ -507,33 +662,51 @@ class OrquestadorGUI:
 
         return prepared
 
-    def run_pipelines_orchestrator(self, selected, since, before, pipeline_type, special_folder):
+    def run_pipelines_orchestrator(self, prepared, since, before, pipeline_type, special_folder):
         try:
             if pipeline_type == "semanal":
-                prepared = self.prepare_pipelines(selected, since, before)
                 self.run_pipelines(prepared, since)
             elif pipeline_type == "periodico":
-                self.run_periodico(selected, since, before, special_folder)
+                self.run_periodico(prepared, since, before, special_folder)
             elif pipeline_type == "conjunto":
-                self.run_conjunto(selected, since, before, special_folder)
+                self.run_conjunto(prepared, before, special_folder)
         finally:
-            self.finish_ui()
+            self.root.after(0, self.finish_ui)
 
-    def run_periodico(self, selected, since, before, special_folder):
+    def run_periodico(self, prepared_template, since, before, special_folder):
         parent_path = Path(special_folder)
         if not parent_path.exists():
-            self.log(f"❌ La carpeta madre no existe: {special_folder}")
-            return
+            parent_path.mkdir(parents=True, exist_ok=True)
 
-        # Filtrar carpetas (periodos)
+        # 1. Buscar carpetas existentes
         periodos = [d for d in parent_path.iterdir() if d.is_dir() and not d.name.endswith("_Datos") and not d.name == "analisis_conjunto"]
         periodos.sort()
 
+        # 2. Si no hay carpetas, pero hay un rango de fechas, crearlas por tramos de 15 días
         if not periodos:
-            self.log(f"⚠️ No se encontraron carpetas de periodos en {special_folder}")
+            self.log(f"ℹ️ No se encontraron carpetas. Generando tramos de 15 días desde {since} hasta {before}...")
+            try:
+                start_dt = datetime.strptime(since, "%Y-%m-%d")
+                end_dt = datetime.strptime(before, "%Y-%m-%d")
+                
+                curr = start_dt
+                while curr < end_dt:
+                    t_end = min(curr + timedelta(days=14), end_dt)
+                    folder_name = f"{curr.strftime('%Y-%m-%d')}_al_{t_end.strftime('%Y-%m-%d')}"
+                    p_dir = parent_path / folder_name
+                    # No la creamos aquí físicamente todavía, solo la añadimos a la lista para procesar
+                    # El pipeline se encargará de crearla al ejecutar los extractores
+                    periodos.append(p_dir)
+                    curr = t_end + timedelta(days=1)
+            except Exception as e:
+                self.log(f"❌ Error calculando tramos: {e}")
+                return
+
+        if not periodos:
+            self.log(f"⚠️ No se pudo determinar ningún periodo para procesar en {special_folder}")
             return
 
-        self.log(f"📂 Detectados {len(periodos)} periodos para analizar.")
+        self.log(f"📂 Procesando {len(periodos)} periodos.")
 
         for p_dir in periodos:
             if self.stop_requested: break
@@ -541,25 +714,42 @@ class OrquestadorGUI:
             self.log(f"🔄 PROCESANDO PERIODO: {p_dir.name}")
             self.log(f"{'='*60}")
 
-            # En modo periodico, 'since' para el consolidador sera el nombre de la carpeta
-            # Pasamos p_dir.name como 'since' y activamos is_periodico=True
-            prepared = self.prepare_pipelines(selected, p_dir.name, before, is_periodico=True)
+            # Determinar fechas para este periodo si es una carpeta nueva
+            # Si el nombre de la carpeta tiene el formato YYYY-MM-DD_al_YYYY-MM-DD lo usamos
+            p_since, p_before = since, before
+            if "_al_" in p_dir.name:
+                parts = p_dir.name.split("_al_")
+                if len(parts) == 2:
+                    p_since, p_before = parts[0], parts[1]
 
-            # Ajustar base_dir de los comandos para que apunten a la carpeta del periodo
+            # Ajustar base_dir y fechas de los comandos usando el template preparado en el hilo principal
             adjusted_prepared = []
-            for spec, cmd, env in prepared:
-                # Modificamos --base-dir y --output-dir para que apunten a la carpeta del periodo
+            for spec, cmd, env in prepared_template:
                 new_cmd = []
+                current_flag = None
                 for part in cmd:
                     if part == str(REPO_ROOT):
                         new_cmd.append(str(p_dir))
+                    elif current_flag in PERIODO_DIR_FLAGS:
+                        new_cmd.append(remap_periodic_path(part, p_dir))
+                    elif part == "__PERIODO_SINCE__":
+                        new_cmd.append(p_since)
+                    elif part == "__PERIODO_BEFORE__":
+                        new_cmd.append(p_before)
+                    elif part == since and spec.key != "consolidador_datos":
+                        new_cmd.append(p_since)
+                    elif part == before:
+                        new_cmd.append(p_before)
                     else:
                         new_cmd.append(part)
-                adjusted_prepared.append((spec, new_cmd, env))
+                    current_flag = part if part.startswith("--") else None
+                new_env = dict(env)
+                new_env["REPORT_TAG_OVERRIDE"] = p_dir.name
+                adjusted_prepared.append((spec, new_cmd, new_env))
 
             self.run_pipelines(adjusted_prepared, p_dir.name)
 
-    def run_conjunto(self, selected, since, before, special_folder):
+    def run_conjunto(self, prepared, before, special_folder):
         parent_path = Path(special_folder)
         conjunto_dir = parent_path / "analisis_conjunto"
         conjunto_dir.mkdir(exist_ok=True)
@@ -577,9 +767,6 @@ class OrquestadorGUI:
 
         # Segun el issue: "deben de consolidar todos los datos de todos los periodos y a partir de ahi,
         # el pipeline debe ejecutar el analisis con esos datos consilidados"
-
-        # Vamos a preparar el comando del consolidador especificamente para 'conjunto'
-        prepared = self.prepare_pipelines(selected, "conjunto", before, is_periodico=True)
 
         adjusted_prepared = []
         for spec, cmd, env in prepared:
@@ -608,6 +795,21 @@ class OrquestadorGUI:
 
         self.run_pipelines(adjusted_prepared, "conjunto")
 
+    def start_heartbeat(self, spec_label: str, last_output_at: dict[str, float]):
+        stop_event = threading.Event()
+
+        def _heartbeat():
+            while not stop_event.wait(5):
+                if self.running_process is None:
+                    continue
+                idle_for = int(monotonic() - last_output_at["value"])
+                if idle_for >= 5:
+                    self.log(f"⏳ {spec_label} sigue corriendo... {idle_for}s sin salida nueva.")
+
+        thread = threading.Thread(target=_heartbeat, daemon=True)
+        thread.start()
+        return stop_event
+
     def run_pipelines(self, prepared, since: str):
         use_defaults = self.mode_var.get() == "all_networks"
         pipeline_type = self.pipeline_type_var.get()
@@ -621,6 +823,7 @@ class OrquestadorGUI:
             self.log(f"\n--- Ejecutando: {spec.label} ---")
 
             try:
+                heartbeat_stop = None
                 if self.use_venv_var.get() and self.venv_python and cmd and cmd[0] == sys.executable:
                     cmd[0] = self.venv_python
 
@@ -638,6 +841,7 @@ class OrquestadorGUI:
 
                 current_env = os.environ.copy()
                 current_env.update(env_vars)
+                current_env["PYTHONUNBUFFERED"] = "1"
 
                 keys_to_check = ["YOUTUBE_API_KEY", "APIFY_TOKEN", "CLAUDE_API_KEY"]
                 keys_present = [key for key in keys_to_check if current_env.get(key)]
@@ -659,8 +863,15 @@ class OrquestadorGUI:
                     universal_newlines=True,
                 )
 
+                if Path(cmd[0]).name.startswith("python"):
+                    self.log("ℹ️ Salida en tiempo real activada para el proceso Python.")
+
+                last_output_at = {"value": monotonic()}
+                heartbeat_stop = self.start_heartbeat(spec.label, last_output_at)
+
                 assert self.running_process.stdout is not None
                 for line in self.running_process.stdout:
+                    last_output_at["value"] = monotonic()
                     self.log(line.rstrip())
 
                 self.running_process.wait()
@@ -668,6 +879,7 @@ class OrquestadorGUI:
 
                 if return_code == 0:
                     self.log(f"✅ {spec.label} finalizado con éxito.")
+                    self.root.after(0, self.trigger_stage_alarm)
 
                     if spec.code == "4":
                         output_dir_arg = _extract_flag_value(cmd, "--output-dir") or str(REPO_ROOT / "Facebook")
@@ -698,15 +910,18 @@ class OrquestadorGUI:
                 self.log(f"💥 Error inesperado ejecutando {spec.label}: {exc}")
                 if not self.continue_error_var.get():
                     break
+            finally:
+                if heartbeat_stop is not None:
+                    heartbeat_stop.set()
 
         self.log("\n🏁 Proceso terminado.")
-        self.root.after(0, self.finish_ui)
 
     def finish_ui(self):
         self.play_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
         self.running_process = None
         if not self.stop_requested:
+            self.trigger_final_alarm()
             messagebox.showinfo("Finalizado", "La ejecución de los pipelines ha concluido.")
 
 
