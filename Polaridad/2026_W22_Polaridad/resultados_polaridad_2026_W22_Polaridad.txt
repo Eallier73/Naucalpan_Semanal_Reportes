@@ -1,0 +1,52 @@
+=== RESULTADOS DEL ANALISIS DE POLARIDAD ===
+Archivo fuente: material_comentarios.txt
+Total de tokens analizados: 72009
+Palabras positivas encontradas: 4699
+Palabras negativas encontradas: 6527
+Total de palabras encontradas: 11226
+Porcentaje de palabras positivas: 41.9%
+Porcentaje de palabras negativas: 58.1%
+
+TOP 20 PALABRAS POSITIVAS ENCONTRADAS:
+1. gracias: 378 veces
+2. maestros: 339 veces
+3. excelente: 132 veces
+4. apoyo: 111 veces
+5. puro: 110 veces
+6. bienestar: 98 veces
+7. favor: 89 veces
+8. mil: 86 veces
+9. educacion: 75 veces
+10. senor: 69 veces
+11. basta: 61 veces
+12. grande: 52 veces
+13. pura: 51 veces
+14. esperar: 49 veces
+15. claro: 46 veces
+16. seguro: 42 veces
+17. justicia: 42 veces
+18. acuerdo: 41 veces
+19. pasar: 41 veces
+20. valiente: 40 veces
+
+TOP 20 PALABRAS NEGATIVAS ENCONTRADAS:
+1. corrupcion: 253 veces
+2. dinero: 249 veces
+3. mal: 150 veces
+4. peor: 129 veces
+5. carcel: 101 veces
+6. miedo: 95 veces
+7. falta: 91 veces
+8. pena: 91 veces
+9. jajaja: 84 veces
+10. jajajaja: 81 veces
+11. problema: 70 veces
+12. corrupto: 65 veces
+13. payaso: 63 veces
+14. asco: 61 veces
+15. ninos: 58 veces
+16. robar: 56 veces
+17. triste: 54 veces
+18. pobre: 52 veces
+19. delincuencia: 50 veces
+20. culpa: 49 veces

@@ -1,0 +1,56 @@
+{
+  "range_tag": "2026_01_01_2026_05_28",
+  "period_count": 10,
+  "periods": [
+    {
+      "since": "2026-01-01",
+      "before": "2026-01-15",
+      "folder": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-01-01_al_2026-01-15"
+    },
+    {
+      "since": "2026-01-16",
+      "before": "2026-01-30",
+      "folder": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-01-16_al_2026-01-30"
+    },
+    {
+      "since": "2026-02-01",
+      "before": "2026-02-15",
+      "folder": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-02-01_al_2026-02-15"
+    },
+    {
+      "since": "2026-02-16",
+      "before": "2026-02-28",
+      "folder": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-02-16_al_2026-02-28"
+    },
+    {
+      "since": "2026-03-01",
+      "before": "2026-03-15",
+      "folder": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-03-01_al_2026-03-15"
+    },
+    {
+      "since": "2026-03-16",
+      "before": "2026-03-31",
+      "folder": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-03-16_al_2026-03-31"
+    },
+    {
+      "since": "2026-04-01",
+      "before": "2026-04-15",
+      "folder": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-04-01_al_2026-04-15"
+    },
+    {
+      "since": "2026-04-16",
+      "before": "2026-04-30",
+      "folder": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-04-16_al_2026-04-30"
+    },
+    {
+      "since": "2026-05-01",
+      "before": "2026-05-15",
+      "folder": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-05-01_al_2026-05-15"
+    },
+    {
+      "since": "2026-05-16",
+      "before": "2026-05-28",
+      "folder": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-05-16_al_2026-05-28"
+    }
+  ]
+}

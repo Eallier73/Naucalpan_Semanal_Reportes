@@ -189,26 +189,40 @@ Este documento resume, script por script, qué argumentos conviene pedir desde e
 
 - Prompt propio previo: no.
 - Argumentos clave:
-  - Actualmente no recibe CLI; usa configuracion interna del script.
+  - `--since`
+  - `--before`
+  - `--input-dir`
+  - `--output-dir`
+  - `--input-file`
+  - `--stopwords-path`
+  - `--positivas-path`
+  - `--negativas-path`
 - No requiere credenciales.
 - Dependencia operativa:
   - Requiere diccionarios locales en `Scripts/diccionarios/`.
-  - Usa corpus configurado dentro del script.
+  - Requiere `Datos/{semana}/material_comentarios.txt`.
 - Salidas:
-  - Carpeta `Polaridad/` en raiz del repo.
+  - `Polaridad/{semana}/`
 
 ## 12 Analisis de Seguridad/Inseguridad
 
 - Prompt propio previo: no.
 - Argumentos clave:
-  - Actualmente no recibe CLI; usa configuracion interna del script.
+  - `--since`
+  - `--before`
+  - `--input-dir`
+  - `--output-dir`
+  - `--input-file`
+  - `--stopwords-path`
+  - `--seguridad-path`
+  - `--inseguridad-path`
 - No requiere credenciales.
 - Dependencia operativa:
   - Requiere diccionarios locales en `Scripts/diccionarios/`.
   - Requiere stoplist en `Scripts/diccionarios/stopwords/stop_list_espanol.txt`.
-  - Requiere corpus de comentarios configurado dentro del script.
+  - Requiere `Datos/{semana}/material_comentarios.txt`.
 - Salidas:
-  - Carpeta `Seguridad/` en raiz del repo.
+  - `Seguridad/{semana}/`
 
 ## Criterio del orquestador
 

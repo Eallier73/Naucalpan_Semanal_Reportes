@@ -1,0 +1,42 @@
+ANALISIS DE TEMAS GUIADOS POR PALABRAS CLAVE
+========================================================================
+
+Semana: 2026_W24_Temas_Guiados
+Documentos analizados: 11,265
+No clasificados: 8,638
+Fecha de ejecucion: 2026-06-15 11:30:53
+
+DISTRIBUCION POR TEMA
+------------------------------------------------------------------------
+Tema 0 - Servicios: 327 docs (2.90%)
+Tema 1 - Seguridad: 956 docs (8.49%)
+Tema 2 - Vialidades: 342 docs (3.04%)
+Tema 3 - Obras y proyectos: 142 docs (1.26%)
+Tema 4 - Morena (+ / neutro): 318 docs (2.82%)
+Tema 5 - Morena (-): 415 docs (3.68%)
+Tema 6 - Corrupcion: 127 docs (1.13%)
+No clasificados: 8,638 docs (76.68%)
+
+TOP PALABRAS POR TEMA
+------------------------------------------------------------------------
+Tema 0 - Servicios:
+  agua (100), basura (73), luz (44), inundaciones (18), tirar (15), sucio (13), limpiar (12), corte (12), oapas (11), bolsa (11), suministro (10), bomba (9), oscuro (8), alumbrado (7), tubo (7)
+
+Tema 1 - Seguridad:
+  delincuentes (467), seguridad (141), policia (80), delincuencia (56), delincuente (48), inseguridad (41), alarma (38), robo (37), crimen (36), guardia (35), peligro (34), proteccion (23), peligroso (22), criminal (17), robos (17)
+
+Tema 2 - Vialidades:
+  calles (129), calle (80), transito (34), puente (25), drenaje (25), baches (21), vialidades (20), camino (18), aguas (14), banquetas (13), avenidas (13), avenida (12), esquina (11), vialidad (9), peatonal (8)
+
+Tema 3 - Obras y proyectos:
+  obra (48), obras (48), infraestructura (30), mantenimiento (26), puente (25), desarrollo (22), rehabilitacion (20), proyecto (19), construccion (13), proyectos (12), edificio (10), remodelacion (4), renovacion (3), mejoramiento (2), reconstruccion (2)
+
+Tema 4 - Morena (+ / neutro):
+  sheinbaum (104), amlo (84), movimiento (68), obrador (55), lopez (45), transformacion (43), cuarta (23), morenistas (13), obradorismo (1)
+
+Tema 5 - Morena (-):
+  corruptos (130), corrupcion (84), vendidos (63), traidores (62), rateros (47), narcogobierno (36), cartel (35), morenarcos (22), mentirosos (19), dictadura (17), fraude (16), comprados (13), ladrones (12), narcomorena (12), kks (8)
+
+Tema 6 - Corrupcion:
+  corruptos (130), corrupcion (84), vendidos (63), corrupto (52), corrupta (18), complices (16), fraude (16), complice (9), coludidos (9), desviar (6), aviadores (6), tranzas (5), fraudes (4), chayote (4), tranza (4)
+

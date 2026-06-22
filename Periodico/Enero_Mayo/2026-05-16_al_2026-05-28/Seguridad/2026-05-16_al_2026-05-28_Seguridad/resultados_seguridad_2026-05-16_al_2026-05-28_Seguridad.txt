@@ -1,0 +1,52 @@
+=== RESULTADOS DEL ANALISIS DE SEGURIDAD/INSEGURIDAD ===
+Archivo fuente: material_comentarios.txt
+Total de tokens analizados: 11974
+Palabras de seguridad encontradas: 240
+Palabras de inseguridad encontradas: 440
+Total de palabras encontradas: 680
+Porcentaje de seguridad: 35.3%
+Porcentaje de inseguridad: 64.7%
+
+TOP 20 PALABRAS DE SEGURIDAD ENCONTRADAS:
+1. seguridad: 58 veces
+2. apoyo: 38 veces
+3. guardia: 30 veces
+4. compromiso: 15 veces
+5. proteger: 10 veces
+6. fuerte: 8 veces
+7. fortalecer: 8 veces
+8. seguro: 8 veces
+9. apoyar: 6 veces
+10. beneficio: 6 veces
+11. defendiendo: 5 veces
+12. proteccion: 4 veces
+13. segura: 4 veces
+14. respaldo: 2 veces
+15. mantenimiento: 2 veces
+16. solido: 2 veces
+17. constante: 2 veces
+18. establo: 2 veces
+19. confirmar: 2 veces
+20. certeza: 2 veces
+
+TOP 20 PALABRAS DE INSEGURIDAD ENCONTRADAS:
+1. municipal: 68 veces
+2. seguridad: 58 veces
+3. policia: 33 veces
+4. guardia: 30 veces
+5. colonia: 22 veces
+6. calle: 20 veces
+7. corrupcion: 17 veces
+8. trafico: 10 veces
+9. detenido: 10 veces
+10. delincuencia: 9 veces
+11. riesgo: 8 veces
+12. inseguridad: 8 veces
+13. impunidad: 7 veces
+14. cartel: 6 veces
+15. autoridad: 6 veces
+16. miedo: 6 veces
+17. detencion: 5 veces
+18. proteccion: 4 veces
+19. robo: 4 veces
+20. abuso: 4 veces

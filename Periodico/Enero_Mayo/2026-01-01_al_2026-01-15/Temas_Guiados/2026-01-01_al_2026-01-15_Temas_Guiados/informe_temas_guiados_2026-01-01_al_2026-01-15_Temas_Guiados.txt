@@ -1,42 +1,42 @@
 ANALISIS DE TEMAS GUIADOS POR PALABRAS CLAVE
 ========================================================================
 
-Semana: 2026_W01_Temas_Guiados
-Documentos analizados: 22,954
-No clasificados: 12,702
-Fecha de ejecucion: 2026-05-25 13:16:32
+Semana: 2026-01-01_al_2026-01-15_Temas_Guiados
+Documentos analizados: 10,050
+No clasificados: 6,967
+Fecha de ejecucion: 2026-05-28 06:30:28
 
 DISTRIBUCION POR TEMA
 ------------------------------------------------------------------------
-Tema 0 - Servicios: 749 docs (3.26%)
-Tema 1 - Seguridad: 4,012 docs (17.48%)
-Tema 2 - Vialidades: 1,156 docs (5.04%)
-Tema 3 - Obras y proyectos: 404 docs (1.76%)
-Tema 4 - Morena (+ / neutro): 356 docs (1.55%)
-Tema 5 - Morena (-): 2,385 docs (10.39%)
-Tema 6 - Corrupcion: 1,190 docs (5.18%)
-No clasificados: 12,702 docs (55.34%)
+Tema 0 - Servicios: 204 docs (2.03%)
+Tema 1 - Seguridad: 1,182 docs (11.76%)
+Tema 2 - Vialidades: 351 docs (3.49%)
+Tema 3 - Obras y proyectos: 148 docs (1.47%)
+Tema 4 - Morena (+ / neutro): 153 docs (1.52%)
+Tema 5 - Morena (-): 728 docs (7.24%)
+Tema 6 - Corrupcion: 317 docs (3.15%)
+No clasificados: 6,967 docs (69.32%)
 
 TOP PALABRAS POR TEMA
 ------------------------------------------------------------------------
 Tema 0 - Servicios:
-  basura (170), agua (148), luz (140), fuga (79), limpia (42), limpiar (41), limpieza (32), luces (26), bolsas (17), tirar (16), sucio (16), corte (13), bolsa (12), iluminacion (11), recoleccion (10)
+  agua (56), basura (50), luz (35), fuga (21), limpieza (19), limpia (16), recoleccion (12), luces (10), limpiar (9), reciclaje (7), bolsas (6), tirar (5), sucio (5), hidraulico (4), residuos (3)
 
 Tema 1 - Seguridad:
-  policia (2340), delincuentes (845), ladrones (350), seguridad (258), delincuencia (242), delincuente (239), robo (153), crimen (126), ladron (98), peligro (95), guardia (87), criminal (80), patrulla (79), patrullas (78), proteccion (72)
+  policia (699), delincuentes (231), seguridad (149), delincuencia (73), delincuente (70), guardia (66), ladrones (66), robo (48), crimen (30), patrullas (25), ladron (23), criminal (23), patrulla (20), proteccion (19), peligro (19)
 
 Tema 2 - Vialidades:
-  transito (573), calle (362), calles (151), banqueta (92), fuga (79), esquina (50), vialidad (48), banquetas (47), camino (42), avenida (40), alcantarilla (34), vial (32), puente (31), carretera (30), concreto (28)
+  transito (219), calle (93), calles (55), banqueta (32), vialidad (30), banquetas (25), fuga (21), vial (19), esquina (19), vialidades (19), camino (18), avenida (16), circulacion (11), concreto (10), cruce (8)
 
 Tema 3 - Obras y proyectos:
-  obra (235), proyecto (77), obras (65), construccion (64), rehabilitacion (47), puente (31), proyectos (18), desarrollo (16), infraestructura (14), mantenimiento (10), edificio (8), reconstruccion (6), remodelacion (5), mejoramiento (2), renovacion (1)
+  obra (80), rehabilitacion (58), obras (56), construccion (21), proyecto (17), infraestructura (12), desarrollo (10), reconstruccion (7), puente (5), mantenimiento (4), edificio (3), proyectos (3), remodelacion (2), mejoramiento (1), renovacion (1)
 
 Tema 4 - Morena (+ / neutro):
-  sheinbaum (100), amlo (93), lopez (92), obrador (78), transformacion (65), cuarta (46), morenistas (45), movimiento (35), 4t (2), morenismo (2)
+  4t (57), transformacion (45), sheinbaum (34), amlo (26), lopez (21), obrador (20), movimiento (14), cuarta (10), morenistas (7), regeneracion (2)
 
 Tema 5 - Morena (-):
-  corrupcion (1548), corruptos (1282), rateros (724), ladrones (350), cartel (157), mentirosos (52), traidores (41), narcogobierno (39), dictadura (31), fraude (28), narcomorena (26), morenarcos (26), vendidos (25), mugrena (22), kks (19)
+  corrupcion (483), corruptos (379), rateros (194), ladrones (66), cartel (50), mugrena (11), dictadura (11), narcomorena (10), mentirosos (10), narcogobierno (5), kks (5), kk (5), vendidos (4), fraude (4), traidores (3)
 
 Tema 6 - Corrupcion:
-  corrupcion (1548), corruptos (1282), corrupto (523), corrupta (262), extorsionar (202), mordida (176), corruptas (117), coludidos (88), complices (87), moche (84), mochada (78), complice (46), complicidad (31), tranza (29), fraude (28)
+  corrupcion (483), corruptos (379), corrupto (145), corrupta (77), extorsionar (67), mordida (51), corruptas (33), complices (26), mochada (23), coludidos (22), moche (17), complicidad (9), complice (7), tranzas (7), moches (5)
 

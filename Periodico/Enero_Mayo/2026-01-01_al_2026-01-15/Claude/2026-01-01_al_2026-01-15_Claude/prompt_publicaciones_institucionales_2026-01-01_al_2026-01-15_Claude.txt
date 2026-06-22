@@ -5,15 +5,15 @@ Analiza publicaciones institucionales de la semana correspondientes a estos caso
 El corpus mezcla publicaciones institucionales de Twitter/X, Facebook y YouTube. Tu tarea es identificar los temas de comunicacion que aparecen en esas publicaciones y diferenciar claramente el enfoque de cada caso.
 
 Resumen cuantitativo del corpus:
-- Total de publicaciones institucionales: 39
-- Gobierno de Naucalpan: 31
-- Isaac Montoya: 8
+- Total de publicaciones institucionales: 166
+- Gobierno de Naucalpan: 115
+- Isaac Montoya: 51
 - Twitter/X: 39
-- Facebook: 0
+- Facebook: 127
 - YouTube: 0
 - Distribucion por caso y red:
-  - Gobierno de Naucalpan: Twitter/X=31, Facebook=0, YouTube=0
-  - Isaac Montoya: Twitter/X=8, Facebook=0, YouTube=0
+  - Gobierno de Naucalpan: Twitter/X=31, Facebook=84, YouTube=0
+  - Isaac Montoya: Twitter/X=8, Facebook=43, YouTube=0
 
 OBJETIVO ANALITICO:
 - Construir un catalogo comun de EXACTAMENTE 8 temas transversales que describan la agenda institucional observada.

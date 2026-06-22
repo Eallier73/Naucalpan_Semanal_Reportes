@@ -1,0 +1,65 @@
+{
+  "since": "2026-05-16",
+  "before": "2026-05-28",
+  "ordered_cases": [
+    "gobierno_naucalpan",
+    "isaac_montoya"
+  ],
+  "consolidated_csv": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-05-16_al_2026-05-28/Datos/2026-05-16_al_2026-05-28_Datos/publicaciones_institucionales_redes_2026-05-16_al_2026-05-28_Datos.csv",
+  "source_meta": {
+    "twitter": {
+      "source": "twitter",
+      "path": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-05-16_al_2026-05-28/Twitter/2026-05-16_al_2026-05-28_Twitter/2026-05-16_al_2026-05-28_Twitter_post_institucionales.csv",
+      "exists": true,
+      "records": 55,
+      "skipped_empty_text": 0,
+      "skipped_unknown_case": 0
+    },
+    "facebook": {
+      "source": "facebook",
+      "path": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-05-16_al_2026-05-28/Facebook/2026-05-16_al_2026-05-28_Facebook/2026-05-16_al_2026-05-28_Facebook_posts.csv",
+      "exists": true,
+      "records": 173,
+      "skipped_empty_text": 9,
+      "skipped_unknown_case": 0
+    },
+    "youtube": {
+      "source": "youtube",
+      "path": "/home/emilio/Documentos/Naucalpan_Semanal_Reportes/Periodico/Enero_Mayo/2026-05-16_al_2026-05-28/Youtube/2026-05-16_al_2026-05-28_Youtube/2026-05-16_al_2026-05-28_Youtube_scripts.csv",
+      "exists": false,
+      "records": 0,
+      "skipped_empty_text": 0,
+      "skipped_unknown_case": 0,
+      "skipped_non_ok_transcript": 0
+    }
+  },
+  "stats": {
+    "total_publicaciones": 228,
+    "casos_ordenados": [
+      "gobierno_naucalpan",
+      "isaac_montoya"
+    ],
+    "por_caso": {
+      "gobierno_naucalpan": 161,
+      "isaac_montoya": 67
+    },
+    "por_red": {
+      "facebook": 173,
+      "twitter": 55
+    },
+    "por_caso_y_red": {
+      "gobierno_naucalpan::facebook": 129,
+      "gobierno_naucalpan::twitter": 32,
+      "isaac_montoya::facebook": 44,
+      "isaac_montoya::twitter": 23
+    }
+  },
+  "sampling": {
+    "sampled": false,
+    "original_chars": 138908,
+    "final_chars": 138908,
+    "original_docs": 228,
+    "final_docs": 228
+  },
+  "prepare_only": false
+}

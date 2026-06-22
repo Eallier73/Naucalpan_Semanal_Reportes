@@ -86,7 +86,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def weekly_input_dir(base_dir: Path, since: str) -> Path:
-    return Path(base_dir) / build_report_tag(since, "Datos")
+    base_path = Path(base_dir)
+    if all((base_path / filename).exists() for filename in INPUT_FILENAMES):
+        return base_path
+    return base_path / build_report_tag(since, "Datos")
 
 
 def weekly_output_dir(base_dir: Path, since: str) -> Path:

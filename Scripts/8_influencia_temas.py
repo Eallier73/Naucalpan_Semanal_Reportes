@@ -886,6 +886,8 @@ def analizar_influencia(docs: list, stoplist: set, output_dir: Path, report_tag:
 def weekly_input_dir(base_dir: Path, since: str) -> Path:
     """Retorna directorio semanal de entrada (Datos)."""
     base_path = Path(base_dir)
+    if (base_path / "material_institucional.txt").exists() or (base_path / "material_comentarios.txt").exists():
+        return base_path
     week_tag = build_report_tag(since, "Datos")
     if base_path.name == week_tag:
         return base_path

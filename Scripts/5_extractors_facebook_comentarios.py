@@ -47,9 +47,35 @@ from queries_config import FACEBOOK_PAGES
 
 ACTOR_COMMENTS = "apify/facebook-comments-scraper"
 REPO_ROOT = Path(__file__).resolve().parent.parent
+ENV_FILE = REPO_ROOT / ".env.local"
 DEFAULT_OUTPUT_BASE_DIR = str(REPO_ROOT / "Facebook")
 DEFAULT_URLS_BASE_DIR = str(REPO_ROOT / "Facebook")
 DEFAULT_PAGES = [*FACEBOOK_PAGES]
+
+
+def manual_load_dotenv(path: Path) -> bool:
+    try:
+        if not path.exists():
+            return False
+        with open(path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                os.environ[key.strip()] = value.strip().strip("'").strip('"')
+        return True
+    except Exception:
+        return False
+
+
+try:
+    from dotenv import load_dotenv
+
+    if ENV_FILE.exists():
+        load_dotenv(str(ENV_FILE))
+except ImportError:
+    manual_load_dotenv(ENV_FILE)
 
 
 # ============================================================================

@@ -1,317 +1,228 @@
-import os
-import matplotlib.pyplot as plt
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
 from collections import Counter
+from datetime import datetime
+from pathlib import Path
 
-# Rutas base relativas al script
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.dirname(SCRIPT_DIR)
-diccionarios_path = os.path.join(SCRIPT_DIR, "diccionarios")
+import matplotlib.pyplot as plt
 
-ruta_input = os.path.join(REPO_ROOT, "Guardia", "guardia_menciones_01_15_abril")
-resultados_dir = os.path.join(REPO_ROOT, "Polaridad")
+from output_naming import build_output_dir, build_report_tag, ensure_tagged_name
 
-# Archivos a analizar
-archivos_analizar = ["guardia_menciones_01_15_abril"]
 
-# Rutas de diccionarios
-ruta_positivas = os.path.join(diccionarios_path, "diccionario_palabras_positivas.txt")
-ruta_negativas = os.path.join(diccionarios_path, "diccionario_palabras_negativas.txt")
-ruta_seguridad = os.path.join(diccionarios_path, "diccionario_seguridad.txt")
-ruta_inseguridad = os.path.join(diccionarios_path, "diccionario_inseguridad.txt")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SCRIPTS_DIR = Path(__file__).resolve().parent
+DEFAULT_INPUT_DIR = REPO_ROOT / "Datos"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "Polaridad"
+DEFAULT_STOPWORDS_PATH = SCRIPTS_DIR / "diccionarios" / "stopwords" / "stop_list_espanol.txt"
+DEFAULT_POSITIVAS_PATH = SCRIPTS_DIR / "diccionarios" / "diccionario_palabras_positivas.txt"
+DEFAULT_NEGATIVAS_PATH = SCRIPTS_DIR / "diccionarios" / "diccionario_palabras_negativas.txt"
 
-# Crear carpeta de resultados si no existe
-if not os.path.exists(resultados_dir):
-    os.makedirs(resultados_dir)
-    print(f"Carpeta de resultados creada: {resultados_dir}")
 
-# Definir stoplist
-stoplist = set(['municipal', 'colonia', 'carretera', 'seguridad', 'calle', 'frontera', 'en', 'puerto', 'ir', 'como', 'nada', 'mil'])
-print(f"Stoplist definida con {len(stoplist)} palabras: {', '.join(stoplist)}")
+def log(message: str) -> None:
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{ts}] {message}")
 
-# Función para leer archivo
-def leer_archivo(ruta):
+
+def valid_date(value: str) -> str:
     try:
-        with open(ruta, 'r', encoding='utf-8') as f:
-            return f.read()
-    except:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"Fecha invalida '{value}', usa YYYY-MM-DD") from exc
+    return value
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Analisis de polaridad sobre material_comentarios.txt")
+    parser.add_argument("--since", required=True, type=valid_date,
+                        help="Fecha inicio YYYY-MM-DD (define el tag de salida)")
+    parser.add_argument("--before", required=True, type=valid_date,
+                        help="Fecha fin YYYY-MM-DD (compatibilidad con orquestador)")
+    parser.add_argument("--input-dir", default=str(DEFAULT_INPUT_DIR),
+                        help=f"Carpeta base de Datos (default: {DEFAULT_INPUT_DIR})")
+    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR),
+                        help=f"Carpeta base de salida Polaridad (default: {DEFAULT_OUTPUT_DIR})")
+    parser.add_argument("--input-file", default="material_comentarios.txt",
+                        help="Archivo de entrada dentro del directorio de Datos (default: material_comentarios.txt)")
+    parser.add_argument("--stopwords-path", default=str(DEFAULT_STOPWORDS_PATH),
+                        help=f"Ruta de stopwords (default: {DEFAULT_STOPWORDS_PATH})")
+    parser.add_argument("--positivas-path", default=str(DEFAULT_POSITIVAS_PATH),
+                        help=f"Ruta de diccionario positivo (default: {DEFAULT_POSITIVAS_PATH})")
+    parser.add_argument("--negativas-path", default=str(DEFAULT_NEGATIVAS_PATH),
+                        help=f"Ruta de diccionario negativo (default: {DEFAULT_NEGATIVAS_PATH})")
+    return parser.parse_args()
+
+
+def normalize_text(text: str) -> str:
+    replacements = str.maketrans("áéíóúÁÉÍÓÚñÑüÜ", "aeiouAEIOUnNuU")
+    cleaned = text.translate(replacements).lower()
+    for token in (".", ",", ";", ":", "!", "¡", "?", "¿", "-", "_", "(", ")", "[", "]", "{", "}", '"', "'"):
+        cleaned = cleaned.replace(token, " ")
+    return " ".join(cleaned.split())
+
+
+def read_text(path: Path) -> str:
+    for encoding in ("utf-8", "utf-8-sig", "latin-1"):
         try:
-            with open(ruta, 'r', encoding='latin-1') as f:
-                return f.read()
-        except Exception as e:
-            print(f"Error al leer {ruta}: {e}")
-            return ""
-
-# Cargar diccionarios
-print(f"Leyendo palabras positivas de {ruta_positivas}")
-texto_positivas = leer_archivo(ruta_positivas)
-palabras_positivas = set([p.strip().lower() for p in texto_positivas.splitlines() if p.strip() and p.strip().lower() not in stoplist])
-print(f"Palabras positivas cargadas: {len(palabras_positivas)}")
-
-print(f"Leyendo palabras negativas de {ruta_negativas}")
-texto_negativas = leer_archivo(ruta_negativas)
-palabras_negativas = set([p.strip().lower() for p in texto_negativas.splitlines() if p.strip() and p.strip().lower() not in stoplist])
-print(f"Palabras negativas cargadas: {len(palabras_negativas)}")
-
-print(f"Leyendo palabras de seguridad de {ruta_seguridad}")
-texto_seguridad = leer_archivo(ruta_seguridad)
-palabras_seguridad = set([p.strip().lower() for p in texto_seguridad.splitlines() if p.strip() and p.strip().lower() not in stoplist])
-print(f"Palabras de seguridad cargadas: {len(palabras_seguridad)}")
-
-print(f"Leyendo palabras de inseguridad de {ruta_inseguridad}")
-texto_inseguridad = leer_archivo(ruta_inseguridad)
-palabras_inseguridad = set([p.strip().lower() for p in texto_inseguridad.splitlines() if p.strip() and p.strip().lower() not in stoplist])
-print(f"Palabras de inseguridad cargadas: {len(palabras_inseguridad)}")
-
-# Inicializar diccionario de resultados
-resultados_por_archivo = {}
-
-# Procesar cada archivo
-for archivo in archivos_analizar:
-    print(f"\n=== ANALIZANDO: {archivo} ===")
-    ruta_archivo = os.path.join(os.path.dirname(ruta_input), archivo)  # se deriva de ruta_input definida arriba
-
-    texto_principal = leer_archivo(ruta_archivo)
-    print(f"Texto cargado: {len(texto_principal)} caracteres")
-
-    palabras_texto = [p.strip().lower() for p in texto_principal.replace('.', ' ').replace(',', ' ').replace(';', ' ').replace(':', ' ').replace('!', ' ').replace('¡', ' ').replace('?', ' ').replace('¿', ' ').replace('-', ' ').replace('_', ' ').split() if p.strip()]
-    print(f"Total de palabras en el texto: {len(palabras_texto)}")
-
-    contador_positivas = 0
-    contador_negativas = 0
-    contador_seguridad = 0
-    contador_inseguridad = 0
-
-    palabras_positivas_encontradas = []
-    palabras_negativas_encontradas = []
-    palabras_seguridad_encontradas = []
-    palabras_inseguridad_encontradas = []
-
-    for palabra in palabras_texto:
-        if palabra in stoplist:
+            return path.read_text(encoding=encoding, errors="ignore")
+        except OSError:
             continue
-        if palabra in palabras_positivas:
-            contador_positivas += 1
-            palabras_positivas_encontradas.append(palabra)
-        if palabra in palabras_negativas:
-            contador_negativas += 1
-            palabras_negativas_encontradas.append(palabra)
-        if palabra in palabras_seguridad:
-            contador_seguridad += 1
-            palabras_seguridad_encontradas.append(palabra)
-        if palabra in palabras_inseguridad:
-            contador_inseguridad += 1
-            palabras_inseguridad_encontradas.append(palabra)
+    raise FileNotFoundError(f"No se pudo leer archivo: {path}")
 
-    contador_palabras_positivas = Counter(palabras_positivas_encontradas)
-    contador_palabras_negativas = Counter(palabras_negativas_encontradas)
-    contador_palabras_seguridad = Counter(palabras_seguridad_encontradas)
-    contador_palabras_inseguridad = Counter(palabras_inseguridad_encontradas)
 
-    top_positivas = contador_palabras_positivas.most_common(20)
-    top_negativas = contador_palabras_negativas.most_common(20)
-    top_seguridad = contador_palabras_seguridad.most_common(20)
-    top_inseguridad = contador_palabras_inseguridad.most_common(20)
+def read_wordlist(path: Path) -> set[str]:
+    words: set[str] = set()
+    if not path.exists():
+        raise FileNotFoundError(f"No existe archivo de palabras: {path}")
+    for line in read_text(path).splitlines():
+        token = normalize_text(line).strip()
+        if token:
+            words.add(token)
+    return words
 
-    total_palabras_encontradas = contador_positivas + contador_negativas
-    if total_palabras_encontradas > 0:
-        porcentaje_positivas = (contador_positivas / total_palabras_encontradas) * 100
-        porcentaje_negativas = (contador_negativas / total_palabras_encontradas) * 100
-    else:
-        porcentaje_positivas = 0
-        porcentaje_negativas = 0
 
-    total_palabras_seguridad_inseguridad = contador_seguridad + contador_inseguridad
-    if total_palabras_seguridad_inseguridad > 0:
-        porcentaje_seguridad = (contador_seguridad / total_palabras_seguridad_inseguridad) * 100
-        porcentaje_inseguridad = (contador_inseguridad / total_palabras_seguridad_inseguridad) * 100
-    else:
-        porcentaje_seguridad = 0
-        porcentaje_inseguridad = 0
+def weekly_input_dir(base_dir: Path, since: str) -> Path:
+    base_path = Path(base_dir)
+    if (base_path / "material_comentarios.txt").exists() or (base_path / "material_institucional.txt").exists():
+        return base_path
+    tag = build_report_tag(since, "Datos")
+    if base_path.name == tag:
+        return base_path
+    return base_path / tag
 
-    resultados_por_archivo[archivo] = {
-        "contador_positivas": contador_positivas,
-        "contador_negativas": contador_negativas,
-        "total_palabras_encontradas": total_palabras_encontradas,
-        "porcentaje_positivas": porcentaje_positivas,
-        "porcentaje_negativas": porcentaje_negativas,
-        "contador_seguridad": contador_seguridad,
-        "contador_inseguridad": contador_inseguridad,
-        "total_palabras_seguridad_inseguridad": total_palabras_seguridad_inseguridad,
-        "porcentaje_seguridad": porcentaje_seguridad,
-        "porcentaje_inseguridad": porcentaje_inseguridad,
-        "top_positivas": top_positivas,
-        "top_negativas": top_negativas,
-        "top_seguridad": top_seguridad,
-        "top_inseguridad": top_inseguridad
-    }
 
-    print("\n=== RESULTADOS (POLARIDAD POSITIVA/NEGATIVA) ===")
-    print(f"Palabras positivas encontradas: {contador_positivas}")
-    print(f"Palabras negativas encontradas: {contador_negativas}")
-    print(f"Total de palabras encontradas: {total_palabras_encontradas}")
-    print(f"Porcentaje de palabras positivas: {porcentaje_positivas:.1f}%")
-    print(f"Porcentaje de palabras negativas: {porcentaje_negativas:.1f}%")
+def tokenize(text: str) -> list[str]:
+    return [token for token in normalize_text(text).split() if token]
 
-    print("\n=== RESULTADOS (SEGURIDAD/INSEGURIDAD) ===")
-    print(f"Palabras de seguridad encontradas: {contador_seguridad}")
-    print(f"Palabras de inseguridad encontradas: {contador_inseguridad}")
-    print(f"Total de palabras seguridad/inseguridad encontradas: {total_palabras_seguridad_inseguridad}")
-    print(f"Porcentaje de palabras de seguridad: {porcentaje_seguridad:.1f}%")
-    print(f"Porcentaje de palabras de inseguridad: {porcentaje_inseguridad:.1f}%")
 
-    # Guardar resultados en TXT
-    nombre_archivo_sin_extension = os.path.splitext(archivo)[0]
-    ruta_resultados_txt = os.path.join(resultados_dir, f"resultados_{nombre_archivo_sin_extension}.txt")
-
-    with open(ruta_resultados_txt, 'w', encoding='utf-8') as f:
-        f.write("=== PALABRAS EXCLUIDAS DEL ANÁLISIS (STOPLIST) ===\n")
-        for i, palabra in enumerate(sorted(stoplist), 1):
-            f.write(f"{i}. {palabra}\n")
-        f.write("\n")
-
-        f.write("=== RESULTADOS DEL ANÁLISIS DE POLARIDAD (POSITIVO/NEGATIVO) ===\n")
-        f.write(f"Palabras positivas encontradas: {contador_positivas}\n")
-        f.write(f"Palabras negativas encontradas: {contador_negativas}\n")
-        f.write(f"Total de palabras encontradas: {total_palabras_encontradas}\n")
-        f.write(f"Porcentaje de palabras positivas: {porcentaje_positivas:.1f}%\n")
-        f.write(f"Porcentaje de palabras negativas: {porcentaje_negativas:.1f}%\n\n")
-
-        f.write("TOP 20 PALABRAS POSITIVAS ENCONTRADAS:\n")
-        for i, (palabra, frecuencia) in enumerate(top_positivas, 1):
-            f.write(f"{i}. {palabra}: {frecuencia} veces\n")
-        f.write("\n")
-
-        f.write("TOP 20 PALABRAS NEGATIVAS ENCONTRADAS:\n")
-        for i, (palabra, frecuencia) in enumerate(top_negativas, 1):
-            f.write(f"{i}. {palabra}: {frecuencia} veces\n")
-        f.write("\n")
-
-        f.write("=== RESULTADOS DEL ANÁLISIS (SEGURIDAD/INSEGURIDAD) ===\n")
-        f.write(f"Palabras de seguridad encontradas: {contador_seguridad}\n")
-        f.write(f"Palabras de inseguridad encontradas: {contador_inseguridad}\n")
-        f.write(f"Total de palabras seguridad/inseguridad encontradas: {total_palabras_seguridad_inseguridad}\n")
-        f.write(f"Porcentaje de palabras de seguridad: {porcentaje_seguridad:.1f}%\n")
-        f.write(f"Porcentaje de palabras de inseguridad: {porcentaje_inseguridad:.1f}%\n\n")
-
-        f.write("TOP 20 PALABRAS DE SEGURIDAD ENCONTRADAS:\n")
-        for i, (palabra, frecuencia) in enumerate(top_seguridad, 1):
-            f.write(f"{i}. {palabra}: {frecuencia} veces\n")
-        f.write("\n")
-
-        f.write("TOP 20 PALABRAS DE INSEGURIDAD ENCONTRADAS:\n")
-        for i, (palabra, frecuencia) in enumerate(top_inseguridad, 1):
-            f.write(f"{i}. {palabra}: {frecuencia} veces\n")
-
-    print(f"\nResultados guardados en: {ruta_resultados_txt}")
-
-    # Gráfico de pastel polaridad
-    plt.figure(figsize=(10, 6))
-    labels_polaridad = ['Positivas', 'Negativas']
-    sizes_polaridad = [porcentaje_positivas, porcentaje_negativas]
-    colors_polaridad = ['#66b3ff', '#ff9999']
-    explode_polaridad = (0.1, 0)
-
-    plt.pie(sizes_polaridad, explode=explode_polaridad, labels=labels_polaridad, colors=colors_polaridad,
-            autopct='%1.1f%%', shadow=True, startangle=90)
-    plt.axis('equal')
-    plt.title(f'Distribución de Polaridad Positiva/Negativa - {nombre_archivo_sin_extension}')
-
-    ruta_grafico_polaridad = os.path.join(resultados_dir, f"grafico_polaridad_{nombre_archivo_sin_extension}.png")
-    plt.savefig(ruta_grafico_polaridad, dpi=300, bbox_inches='tight')
+def create_bar_chart(data: list[tuple[str, int]], title: str, output_path: Path, color: str) -> None:
+    if not data:
+        return
+    words = [word for word, _ in data][::-1]
+    freqs = [freq for _, freq in data][::-1]
+    plt.figure(figsize=(12, 8))
+    plt.barh(words, freqs, color=color)
+    plt.xlabel("Frecuencia")
+    plt.ylabel("Palabras")
+    plt.title(title)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"Gráfico de polaridad guardado en: {ruta_grafico_polaridad}")
 
-    # Gráfico de pastel seguridad
+
+def create_polarity_chart(positivas_pct: float, negativas_pct: float, output_path: Path, report_tag: str) -> None:
     plt.figure(figsize=(10, 6))
-    labels_seguridad = ['Seguridad', 'Inseguridad']
-    sizes_seguridad = [porcentaje_seguridad, porcentaje_inseguridad]
-    colors_seguridad = ['#77dd77', '#ff6961']
-    explode_seguridad = (0.1, 0)
-
-    plt.pie(sizes_seguridad, explode=explode_seguridad, labels=labels_seguridad, colors=colors_seguridad,
-            autopct='%1.1f%%', shadow=True, startangle=90)
-    plt.axis('equal')
-    plt.title(f'Distribución de Seguridad/Inseguridad - {nombre_archivo_sin_extension}')
-
-    ruta_grafico_seguridad = os.path.join(resultados_dir, f"grafico_seguridad_{nombre_archivo_sin_extension}.png")
-    plt.savefig(ruta_grafico_seguridad, dpi=300, bbox_inches='tight')
+    if (positivas_pct + negativas_pct) > 0:
+        values = [positivas_pct, negativas_pct]
+        explode = (0.1, 0)
+        labels = ["Positivas", "Negativas"]
+        colors = ["#66b3ff", "#ff9999"]
+        plt.pie(
+            values,
+            explode=explode,
+            labels=labels,
+            colors=colors,
+            autopct="%1.1f%%",
+            shadow=True,
+            startangle=90,
+        )
+        plt.axis("equal")
+    else:
+        plt.text(0.5, 0.5, "Sin palabras de polaridad detectadas", ha="center", va="center")
+        plt.axis("off")
+    plt.title(f"Distribucion de Polaridad - {report_tag}")
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"Gráfico de seguridad guardado en: {ruta_grafico_seguridad}")
 
-    # Gráficos de barras
-    def crear_grafico_barras(datos, titulo, ruta_salida, color):
-        if not datos:
-            print(f"No hay datos para crear el gráfico: {titulo}")
-            return
-        palabras = [palabra for palabra, _ in datos]
-        frecuencias = [freq for _, freq in datos]
-        palabras.reverse()
-        frecuencias.reverse()
-        plt.figure(figsize=(12, 8))
-        plt.barh(palabras, frecuencias, color=color)
-        plt.xlabel('Frecuencia')
-        plt.ylabel('Palabras')
-        plt.title(titulo)
-        plt.tight_layout()
-        plt.savefig(ruta_salida, dpi=300, bbox_inches='tight')
-        plt.close()
 
-    if top_positivas:
-        crear_grafico_barras(
-            top_positivas,
-            f'Palabras Positivas Más Frecuentes - {nombre_archivo_sin_extension}',
-            os.path.join(resultados_dir, f"palabras_positivas_frecuentes_{nombre_archivo_sin_extension}.png"),
-            '#66b3ff'
-        )
+def main() -> None:
+    args = parse_args()
+    input_week_dir = weekly_input_dir(Path(args.input_dir), args.since)
+    output_week_dir = build_output_dir(Path(args.output_dir), args.since, "Polaridad")
+    output_week_dir.mkdir(parents=True, exist_ok=True)
 
-    if top_negativas:
-        crear_grafico_barras(
-            top_negativas,
-            f'Palabras Negativas Más Frecuentes - {nombre_archivo_sin_extension}',
-            os.path.join(resultados_dir, f"palabras_negativas_frecuentes_{nombre_archivo_sin_extension}.png"),
-            '#ff9999'
-        )
+    input_path = input_week_dir / args.input_file
+    if not input_path.exists():
+        raise FileNotFoundError(f"No existe archivo de entrada: {input_path}")
 
-    if top_seguridad:
-        crear_grafico_barras(
-            top_seguridad,
-            f'Palabras de Seguridad Más Frecuentes - {nombre_archivo_sin_extension}',
-            os.path.join(resultados_dir, f"palabras_seguridad_frecuentes_{nombre_archivo_sin_extension}.png"),
-            '#77dd77'
-        )
+    stopwords = read_wordlist(Path(args.stopwords_path))
+    positivas = read_wordlist(Path(args.positivas_path)) - stopwords
+    negativas = read_wordlist(Path(args.negativas_path)) - stopwords
 
-    if top_inseguridad:
-        crear_grafico_barras(
-            top_inseguridad,
-            f'Palabras de Inseguridad Más Frecuentes - {nombre_archivo_sin_extension}',
-            os.path.join(resultados_dir, f"palabras_inseguridad_frecuentes_{nombre_archivo_sin_extension}.png"),
-            '#ff6961'
-        )
+    log(f"Entrada: {input_path}")
+    log(f"Salida: {output_week_dir}")
+    log(f"Stopwords: {len(stopwords)}")
+    log(f"Palabras positivas: {len(positivas)}")
+    log(f"Palabras negativas: {len(negativas)}")
 
-# Informe consolidado
-ruta_informe_consolidado = os.path.join(resultados_dir, "informe_consolidado.txt")
-with open(ruta_informe_consolidado, 'w', encoding='utf-8') as f:
-    f.write("=== INFORME CONSOLIDADO DE ANÁLISIS DE SENTIMIENTO ===\n\n")
+    words = tokenize(read_text(input_path))
+    filtered_words = [word for word in words if word not in stopwords]
+    positivas_encontradas = [word for word in filtered_words if word in positivas]
+    negativas_encontradas = [word for word in filtered_words if word in negativas]
 
-    f.write("TABLA DE POLARIDAD POSITIVA/NEGATIVA\n")
-    f.write("-" * 80 + "\n")
-    f.write(f"{'Archivo':<40} | {'Positivas %':>12} | {'Negativas %':>12} | {'Total palabras':>12}\n")
-    f.write("-" * 80 + "\n")
+    contador_positivas = Counter(positivas_encontradas)
+    contador_negativas = Counter(negativas_encontradas)
+    total_positivas = sum(contador_positivas.values())
+    total_negativas = sum(contador_negativas.values())
+    total = total_positivas + total_negativas
 
-    for archivo, datos in resultados_por_archivo.items():
-        f.write(f"{archivo:<40} | {datos['porcentaje_positivas']:>11.1f}% | {datos['porcentaje_negativas']:>11.1f}% | {datos['total_palabras_encontradas']:>12}\n")
+    porcentaje_positivas = (total_positivas / total * 100) if total else 0.0
+    porcentaje_negativas = (total_negativas / total * 100) if total else 0.0
 
-    f.write("\n\n")
+    report_tag = build_report_tag(args.since, "Polaridad")
+    txt_path = output_week_dir / f"{ensure_tagged_name('resultados_polaridad', report_tag)}.txt"
+    pie_path = output_week_dir / f"{ensure_tagged_name('grafico_polaridad', report_tag)}.png"
+    pos_bar_path = output_week_dir / f"{ensure_tagged_name('palabras_positivas_frecuentes', report_tag)}.png"
+    neg_bar_path = output_week_dir / f"{ensure_tagged_name('palabras_negativas_frecuentes', report_tag)}.png"
 
-    f.write("TABLA DE SEGURIDAD/INSEGURIDAD\n")
-    f.write("-" * 80 + "\n")
-    f.write(f"{'Archivo':<40} | {'Seguridad %':>12} | {'Inseguridad %':>14} | {'Total palabras':>12}\n")
-    f.write("-" * 80 + "\n")
+    txt_lines = [
+        "=== RESULTADOS DEL ANALISIS DE POLARIDAD ===",
+        f"Archivo fuente: {input_path.name}",
+        f"Total de tokens analizados: {len(filtered_words)}",
+        f"Palabras positivas encontradas: {total_positivas}",
+        f"Palabras negativas encontradas: {total_negativas}",
+        f"Total de palabras encontradas: {total}",
+        f"Porcentaje de palabras positivas: {porcentaje_positivas:.1f}%",
+        f"Porcentaje de palabras negativas: {porcentaje_negativas:.1f}%",
+        "",
+        "TOP 20 PALABRAS POSITIVAS ENCONTRADAS:",
+    ]
+    txt_lines.extend(
+        f"{idx}. {word}: {freq} veces"
+        for idx, (word, freq) in enumerate(contador_positivas.most_common(20), 1)
+    )
+    txt_lines.append("")
+    txt_lines.append("TOP 20 PALABRAS NEGATIVAS ENCONTRADAS:")
+    txt_lines.extend(
+        f"{idx}. {word}: {freq} veces"
+        for idx, (word, freq) in enumerate(contador_negativas.most_common(20), 1)
+    )
+    txt_path.write_text("\n".join(txt_lines) + "\n", encoding="utf-8")
 
-    for archivo, datos in resultados_por_archivo.items():
-        f.write(f"{archivo:<40} | {datos['porcentaje_seguridad']:>11.1f}% | {datos['porcentaje_inseguridad']:>13.1f}% | {datos['total_palabras_seguridad_inseguridad']:>12}\n")
+    create_polarity_chart(porcentaje_positivas, porcentaje_negativas, pie_path, report_tag)
 
-print(f"\nInforme consolidado guardado en: {ruta_informe_consolidado}")
+    create_bar_chart(
+        contador_positivas.most_common(20),
+        f"Palabras Positivas Mas Frecuentes - {report_tag}",
+        pos_bar_path,
+        "#66b3ff",
+    )
+    create_bar_chart(
+        contador_negativas.most_common(20),
+        f"Palabras Negativas Mas Frecuentes - {report_tag}",
+        neg_bar_path,
+        "#ff9999",
+    )
 
-print("\n=== ANÁLISIS COMPLETADO ===")
-print(f"Todos los resultados se han guardado en: {resultados_dir}")
+    log(f"Resultados TXT: {txt_path}")
+    log(f"Grafico polaridad: {pie_path}")
+    if contador_positivas:
+        log(f"Barras positivas: {pos_bar_path}")
+    if contador_negativas:
+        log(f"Barras negativas: {neg_bar_path}")
+    log("Analisis de polaridad completado")
+
+
+if __name__ == "__main__":
+    main()

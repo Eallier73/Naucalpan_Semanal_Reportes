@@ -185,6 +185,16 @@ def parse_pipeline_selection(raw: str) -> list[PipelineSpec]:
     return selected
 
 
+def append_missing_pipelines(selected: list[PipelineSpec], pipeline_codes: list[str]) -> list[PipelineSpec]:
+    existing_codes = {item.code for item in selected}
+    for code in pipeline_codes:
+        if code not in existing_codes:
+            selected.append(PIPELINES_BY_CODE[code])
+            existing_codes.add(code)
+    selected.sort(key=lambda item: int(item.code))
+    return selected
+
+
 def append_many(cmd: list[str], flag: str, values: list[str]) -> None:
     if values:
         cmd.append(flag)
@@ -648,26 +658,78 @@ def build_publicaciones_institucionales(since: str, before: str, use_defaults: b
     return cmd, env
 
 
-def build_analisis_polaridad(use_defaults: bool = False) -> tuple[list[str], dict[str, str]]:
-    if not use_defaults:
+def build_analisis_polaridad(since: str, before: str, use_defaults: bool = False) -> tuple[list[str], dict[str, str]]:
+    if use_defaults:
+        input_dir = str(REPO_ROOT / "Datos")
+        output_dir = str(REPO_ROOT / "Polaridad")
+        stopwords_path = str(REPO_ROOT / "Scripts" / "diccionarios" / "stopwords" / "stop_list_espanol.txt")
+        positivas_path = str(REPO_ROOT / "Scripts" / "diccionarios" / "diccionario_palabras_positivas.txt")
+        negativas_path = str(REPO_ROOT / "Scripts" / "diccionarios" / "diccionario_palabras_negativas.txt")
+    else:
         print("\n=== Analisis de Polaridad ===")
-        print("Este pipeline usa la configuracion interna del script 11_analisis_polaridad.py")
+        input_dir = prompt_text("Directorio base de entrada (Datos)", str(REPO_ROOT / "Datos"))
+        output_dir = prompt_text("Directorio base de salida (Polaridad)", str(REPO_ROOT / "Polaridad"))
+        stopwords_path = prompt_text(
+            "Ruta de stopwords",
+            str(REPO_ROOT / "Scripts" / "diccionarios" / "stopwords" / "stop_list_espanol.txt"),
+        )
+        positivas_path = prompt_text(
+            "Ruta de diccionario positivo",
+            str(REPO_ROOT / "Scripts" / "diccionarios" / "diccionario_palabras_positivas.txt"),
+        )
+        negativas_path = prompt_text(
+            "Ruta de diccionario negativo",
+            str(REPO_ROOT / "Scripts" / "diccionarios" / "diccionario_palabras_negativas.txt"),
+        )
 
     cmd = [
         sys.executable,
         str(SCRIPTS_DIR / "11_analisis_polaridad.py"),
+        "--since", since,
+        "--before", before,
+        "--input-dir", input_dir,
+        "--output-dir", output_dir,
+        "--stopwords-path", stopwords_path,
+        "--positivas-path", positivas_path,
+        "--negativas-path", negativas_path,
     ]
     return cmd, {}
 
 
-def build_analisis_seguridad(use_defaults: bool = False) -> tuple[list[str], dict[str, str]]:
-    if not use_defaults:
+def build_analisis_seguridad(since: str, before: str, use_defaults: bool = False) -> tuple[list[str], dict[str, str]]:
+    if use_defaults:
+        input_dir = str(REPO_ROOT / "Datos")
+        output_dir = str(REPO_ROOT / "Seguridad")
+        stopwords_path = str(REPO_ROOT / "Scripts" / "diccionarios" / "stopwords" / "stop_list_espanol.txt")
+        seguridad_path = str(REPO_ROOT / "Scripts" / "diccionarios" / "diccionario_seguridad.txt")
+        inseguridad_path = str(REPO_ROOT / "Scripts" / "diccionarios" / "diccionario_inseguridad.txt")
+    else:
         print("\n=== Analisis de Seguridad/Inseguridad ===")
-        print("Este pipeline usa la configuracion interna del script 12_analisis_seguridad.py")
+        input_dir = prompt_text("Directorio base de entrada (Datos)", str(REPO_ROOT / "Datos"))
+        output_dir = prompt_text("Directorio base de salida (Seguridad)", str(REPO_ROOT / "Seguridad"))
+        stopwords_path = prompt_text(
+            "Ruta de stopwords",
+            str(REPO_ROOT / "Scripts" / "diccionarios" / "stopwords" / "stop_list_espanol.txt"),
+        )
+        seguridad_path = prompt_text(
+            "Ruta de diccionario de seguridad",
+            str(REPO_ROOT / "Scripts" / "diccionarios" / "diccionario_seguridad.txt"),
+        )
+        inseguridad_path = prompt_text(
+            "Ruta de diccionario de inseguridad",
+            str(REPO_ROOT / "Scripts" / "diccionarios" / "diccionario_inseguridad.txt"),
+        )
 
     cmd = [
         sys.executable,
         str(SCRIPTS_DIR / "12_analisis_seguridad.py"),
+        "--since", since,
+        "--before", before,
+        "--input-dir", input_dir,
+        "--output-dir", output_dir,
+        "--stopwords-path", stopwords_path,
+        "--seguridad-path", seguridad_path,
+        "--inseguridad-path", inseguridad_path,
     ]
     return cmd, {}
 
@@ -703,9 +765,9 @@ def build_pipeline(spec: PipelineSpec, since: str, before: str, use_defaults: bo
     if spec.key == "publicaciones_institucionales":
         return build_publicaciones_institucionales(since, before, use_defaults)
     if spec.key == "analisis_polaridad":
-        return build_analisis_polaridad(use_defaults)
+        return build_analisis_polaridad(since, before, use_defaults)
     if spec.key == "analisis_seguridad":
-        return build_analisis_seguridad(use_defaults)
+        return build_analisis_seguridad(since, before, use_defaults)
     raise ValueError(f"Pipeline no soportado: {spec.key}")
 
 
@@ -796,6 +858,7 @@ def main() -> None:
         "7": "Claude",
         "8": "Influencia Temas",
         "9": "Temas Guiados",
+        "11": "Analisis de Polaridad",
         "12": "Analisis de Seguridad/Inseguridad",
     }
     for dependent_code, dependent_label in required_by_consolidador.items():

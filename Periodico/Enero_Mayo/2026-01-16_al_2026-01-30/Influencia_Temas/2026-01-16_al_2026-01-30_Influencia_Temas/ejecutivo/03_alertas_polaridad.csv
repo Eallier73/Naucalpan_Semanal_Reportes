@@ -1,0 +1,7 @@
+tema_id,tema,nivel_alerta,direccion,impacto_en_polaridad,confianza,contribucion_pct,num_subtemas,motivo
+0,Servicios e Infraestructura Pública,Oportunidad,Polaridad positiva,Alta,Alta,15.09,3,Dirección Polaridad positiva; impacto Alta; contribución 15.09% (3 subtemas).
+1,Seguridad y Criminalidad,Alta,Polaridad negativa,Alta,Alta,36.45,4,Dirección Polaridad negativa; impacto Alta; contribución 36.45% (4 subtemas).
+2,Medio Ambiente y Servicios de Agua,Alta,Polaridad negativa,Alta,Baja,8.74,3,Dirección Polaridad negativa; impacto Alta; contribución 8.74% (3 subtemas).
+3,Obra Pública e Inversión,Oportunidad,Polaridad positiva,Alta,Alta,11.41,1,Dirección Polaridad positiva; impacto Alta; contribución 11.41% (1 subtemas).
+4,Educación y Cultura,Alta,Polaridad negativa,Alta,Alta,16.16,2,Dirección Polaridad negativa; impacto Alta; contribución 16.16% (2 subtemas).
+6,Gobernanza y Administración Pública,Alta,Polaridad negativa,Alta,Alta,12.15,1,Dirección Polaridad negativa; impacto Alta; contribución 12.15% (1 subtemas).

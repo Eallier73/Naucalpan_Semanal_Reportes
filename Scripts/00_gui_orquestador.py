@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import importlib.util
 import math
 import os
+import re
 from queue import Empty, SimpleQueue
 import shutil
 import struct
@@ -77,6 +78,7 @@ build_report_tag = ORQUESTADOR.build_report_tag
 
 
 DEFAULT_GLOBAL_SINCE, DEFAULT_GLOBAL_BEFORE = iso_week_to_range(DEFAULT_GLOBAL_ISO_WEEK)
+PERIOD_FOLDER_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2})_al_(\d{4}-\d{2}-\d{2})$")
 
 
 def parse_date_range(since: str, before: str) -> tuple[str, str]:
@@ -112,6 +114,17 @@ def ensure_pipeline_before(selected, before_code: str, after_code: str):
     return selected
 
 
+def append_missing_pipelines(selected, pipeline_codes: list[str]) -> list:
+    existing_codes = {item.code for item in selected}
+    order = {pipe.code: index for index, pipe in enumerate(PIPELINES)}
+    for code in pipeline_codes:
+        if code not in existing_codes:
+            selected.append(PIPELINES_BY_CODE[code])
+            existing_codes.add(code)
+    selected.sort(key=lambda item: order[item.code])
+    return selected
+
+
 PERIODO_DIR_FLAGS = {
     "--output-dir",
     "--base-dir",
@@ -130,6 +143,36 @@ def remap_periodic_path(raw_value: str, period_dir: Path) -> str:
     except ValueError:
         return raw_value
     return str(period_dir / relative)
+
+
+def discover_period_dirs(parent_dir: Path) -> list[tuple[str, str, Path]]:
+    periods: list[tuple[str, str, Path]] = []
+    for child in sorted(parent_dir.iterdir(), key=lambda item: item.name):
+        if not child.is_dir():
+            continue
+        match = PERIOD_FOLDER_PATTERN.match(child.name)
+        if not match:
+            continue
+        since, before = match.groups()
+        periods.append((since, before, child))
+    return sorted(periods, key=lambda item: (item[0], item[1], item[2].name))
+
+
+def build_conjunto_range_tag(periods: list[tuple[str, str, Path]]) -> str:
+    if not periods:
+        raise ValueError("No hay periodos disponibles para construir el rango conjunto.")
+    first_since = min(item[0] for item in periods).replace("-", "_")
+    last_before = max(item[1] for item in periods).replace("-", "_")
+    return f"{first_since}_{last_before}"
+
+
+def rewrite_flag_value(cmd: list[str], flag: str, new_value: str) -> list[str]:
+    rewritten = list(cmd)
+    for index, token in enumerate(rewritten):
+        if token == flag and index + 1 < len(rewritten):
+            rewritten[index + 1] = new_value
+            break
+    return rewritten
 
 
 class PromptCancelled(Exception):
@@ -449,6 +492,7 @@ class OrquestadorGUI:
             "7": "Claude",
             "8": "Influencia",
             "9": "Temas Guiados",
+            "11": "Polaridad",
             "12": "Seguridad/Inseguridad",
         }
         for dep_code, dep_label in required_by_consolidador.items():
@@ -495,6 +539,8 @@ class OrquestadorGUI:
         self.log(f"🚀 Iniciando ejecución: {since} al {before}")
 
         selected = self.validate_dependencies(selected)
+        if pipeline_type == "conjunto":
+            selected = append_missing_pipelines(selected, ["6", "7", "8", "9", "10", "11", "12"])
         self.log(f"Pipelines a ejecutar: {', '.join(spec.label for spec in selected)}")
 
         try:
@@ -678,122 +724,83 @@ class OrquestadorGUI:
         if not parent_path.exists():
             parent_path.mkdir(parents=True, exist_ok=True)
 
-        # 1. Buscar carpetas existentes
-        periodos = [d for d in parent_path.iterdir() if d.is_dir() and not d.name.endswith("_Datos") and not d.name == "analisis_conjunto"]
-        periodos.sort()
+        period_dir = parent_path / f"{since}_al_{before}"
+        self.log(f"ℹ️ Procesando un solo periodo: {period_dir.name}")
+        self.log(f"\n{'='*60}")
+        self.log(f"🔄 PROCESANDO PERIODO: {period_dir.name}")
+        self.log(f"{'='*60}")
 
-        # 2. Si no hay carpetas, pero hay un rango de fechas, crearlas por tramos de 15 días
-        if not periodos:
-            self.log(f"ℹ️ No se encontraron carpetas. Generando tramos de 15 días desde {since} hasta {before}...")
-            try:
-                start_dt = datetime.strptime(since, "%Y-%m-%d")
-                end_dt = datetime.strptime(before, "%Y-%m-%d")
-                
-                curr = start_dt
-                while curr < end_dt:
-                    t_end = min(curr + timedelta(days=14), end_dt)
-                    folder_name = f"{curr.strftime('%Y-%m-%d')}_al_{t_end.strftime('%Y-%m-%d')}"
-                    p_dir = parent_path / folder_name
-                    # No la creamos aquí físicamente todavía, solo la añadimos a la lista para procesar
-                    # El pipeline se encargará de crearla al ejecutar los extractores
-                    periodos.append(p_dir)
-                    curr = t_end + timedelta(days=1)
-            except Exception as e:
-                self.log(f"❌ Error calculando tramos: {e}")
-                return
+        adjusted_prepared = []
+        for spec, cmd, env in prepared_template:
+            new_cmd = []
+            current_flag = None
+            for part in cmd:
+                if part == str(REPO_ROOT):
+                    new_cmd.append(str(period_dir))
+                elif current_flag in PERIODO_DIR_FLAGS:
+                    new_cmd.append(remap_periodic_path(part, period_dir))
+                elif part == "__PERIODO_SINCE__":
+                    new_cmd.append(since)
+                elif part == "__PERIODO_BEFORE__":
+                    new_cmd.append(before)
+                else:
+                    new_cmd.append(part)
+                current_flag = part if part.startswith("--") else None
+            new_env = dict(env)
+            new_env["REPORT_TAG_OVERRIDE"] = period_dir.name
+            adjusted_prepared.append((spec, new_cmd, new_env))
 
-        if not periodos:
-            self.log(f"⚠️ No se pudo determinar ningún periodo para procesar en {special_folder}")
-            return
-
-        self.log(f"📂 Procesando {len(periodos)} periodos.")
-
-        for p_dir in periodos:
-            if self.stop_requested: break
-            self.log(f"\n{'='*60}")
-            self.log(f"🔄 PROCESANDO PERIODO: {p_dir.name}")
-            self.log(f"{'='*60}")
-
-            # Determinar fechas para este periodo si es una carpeta nueva
-            # Si el nombre de la carpeta tiene el formato YYYY-MM-DD_al_YYYY-MM-DD lo usamos
-            p_since, p_before = since, before
-            if "_al_" in p_dir.name:
-                parts = p_dir.name.split("_al_")
-                if len(parts) == 2:
-                    p_since, p_before = parts[0], parts[1]
-
-            # Ajustar base_dir y fechas de los comandos usando el template preparado en el hilo principal
-            adjusted_prepared = []
-            for spec, cmd, env in prepared_template:
-                new_cmd = []
-                current_flag = None
-                for part in cmd:
-                    if part == str(REPO_ROOT):
-                        new_cmd.append(str(p_dir))
-                    elif current_flag in PERIODO_DIR_FLAGS:
-                        new_cmd.append(remap_periodic_path(part, p_dir))
-                    elif part == "__PERIODO_SINCE__":
-                        new_cmd.append(p_since)
-                    elif part == "__PERIODO_BEFORE__":
-                        new_cmd.append(p_before)
-                    elif part == since and spec.key != "consolidador_datos":
-                        new_cmd.append(p_since)
-                    elif part == before:
-                        new_cmd.append(p_before)
-                    else:
-                        new_cmd.append(part)
-                    current_flag = part if part.startswith("--") else None
-                new_env = dict(env)
-                new_env["REPORT_TAG_OVERRIDE"] = p_dir.name
-                adjusted_prepared.append((spec, new_cmd, new_env))
-
-            self.run_pipelines(adjusted_prepared, p_dir.name)
+        self.run_pipelines(adjusted_prepared, period_dir.name)
 
     def run_conjunto(self, prepared, before, special_folder):
         parent_path = Path(special_folder)
-        conjunto_dir = parent_path / "analisis_conjunto"
-        conjunto_dir.mkdir(exist_ok=True)
+        parent_path.mkdir(parents=True, exist_ok=True)
+        periods = discover_period_dirs(parent_path)
+        if not periods:
+            self.log(f"❌ No se encontraron carpetas de periodo en: {parent_path}")
+            return
+
+        combined_since = min(item[0] for item in periods)
+        combined_before = max(item[1] for item in periods)
+        range_tag = build_conjunto_range_tag(periods)
+        conjunto_dir = parent_path / range_tag
+        conjunto_dir.mkdir(parents=True, exist_ok=True)
 
         self.log(f"\n{'='*60}")
         self.log(f"🏗️ INICIANDO ANÁLISIS CONJUNTO")
         self.log(f"{'='*60}")
         self.log(f"Carpeta destino: {conjunto_dir}")
-
-        # Para el analisis conjunto, necesitamos consolidar TODO.
-        # Esto requiere una logica especial en el consolidador o ejecutarlo de forma que tome todo.
-        # Como el consolidador actual toma de subcarpetas Twitter, Facebook, etc.
-        # Tendriamos que haber movido/copiado todo a una estructura que el consolidador entienda.
-        # O, mas simple, creamos un consolidador ad-hoc aqui o modificamos el 6_consolidador para aceptar multiples bases.
-
-        # Segun el issue: "deben de consolidar todos los datos de todos los periodos y a partir de ahi,
-        # el pipeline debe ejecutar el analisis con esos datos consilidados"
+        self.log(f"Rango detectado: {combined_since} a {combined_before}")
+        self.log(f"Tag de materiales: {range_tag}")
 
         adjusted_prepared = []
         for spec, cmd, env in prepared:
-            if spec.code == "6": # Consolidador
-                # El consolidador necesita leer de TODAS las carpetas de periodos.
-                # Una forma es pasarle el special_folder como base_dir y que el sepa buscar.
-                # Pero nuestra modificacion de 6_consolidador es simple.
-                # Vamos a hacer que el consolidador en modo conjunto sea especial.
-                new_cmd = []
-                for part in cmd:
-                    if part == str(REPO_ROOT):
-                        new_cmd.append(str(special_folder))
-                    else:
-                        new_cmd.append(part)
-                # Añadir flag especial si fuera necesario, pero usaremos --periodico y --since conjunto
-                adjusted_prepared.append((spec, new_cmd, env))
-            else:
-                # El resto del pipeline usa los datos consolidados en special_folder/conjunto_Datos
-                new_cmd = []
-                for part in cmd:
-                    if part == str(REPO_ROOT):
-                        new_cmd.append(str(special_folder))
-                    else:
-                        new_cmd.append(part)
-                adjusted_prepared.append((spec, new_cmd, env))
+            new_cmd = list(cmd)
+            new_env = dict(env)
 
-        self.run_pipelines(adjusted_prepared, "conjunto")
+            if spec.code == "6":
+                new_cmd = rewrite_flag_value(new_cmd, "--since", "conjunto")
+                new_cmd = rewrite_flag_value(new_cmd, "--before", combined_before)
+                new_cmd = rewrite_flag_value(new_cmd, "--base-dir", str(parent_path))
+                new_cmd = rewrite_flag_value(new_cmd, "--output-dir", str(parent_path))
+            else:
+                new_cmd = rewrite_flag_value(new_cmd, "--since", combined_since)
+                new_cmd = rewrite_flag_value(new_cmd, "--before", combined_before)
+
+                remapped_cmd = []
+                current_flag = None
+                for part in new_cmd:
+                    if current_flag in PERIODO_DIR_FLAGS:
+                        remapped_cmd.append(remap_periodic_path(part, conjunto_dir))
+                    else:
+                        remapped_cmd.append(part)
+                    current_flag = part if part.startswith("--") else None
+                new_cmd = remapped_cmd
+                new_env["REPORT_TAG_OVERRIDE"] = range_tag
+
+            adjusted_prepared.append((spec, new_cmd, new_env))
+
+        self.run_pipelines(adjusted_prepared, combined_since)
 
     def start_heartbeat(self, spec_label: str, last_output_at: dict[str, float]):
         stop_event = threading.Event()
@@ -809,6 +816,21 @@ class OrquestadorGUI:
         thread = threading.Thread(target=_heartbeat, daemon=True)
         thread.start()
         return stop_event
+
+    def _resolve_datos_dir_for_limpieza(self, cmd: list[str], since: str) -> Path | None:
+        output_dir_arg = _extract_flag_value(cmd, "--output-dir")
+        if not output_dir_arg:
+            return None
+        if "--periodico" in cmd and _extract_flag_value(cmd, "--since") == "conjunto":
+            base_dir_arg = _extract_flag_value(cmd, "--base-dir") or output_dir_arg
+            base_path = Path(base_dir_arg)
+            periods = discover_period_dirs(base_path)
+            if periods:
+                range_tag = build_conjunto_range_tag(periods)
+                return base_path / range_tag / "Datos"
+            return None
+        datos_tag = build_report_tag(since, "Datos")
+        return Path(output_dir_arg) / datos_tag
 
     def run_pipelines(self, prepared, since: str):
         use_defaults = self.mode_var.get() == "all_networks"
@@ -881,6 +903,28 @@ class OrquestadorGUI:
                     self.log(f"✅ {spec.label} finalizado con éxito.")
                     self.root.after(0, self.trigger_stage_alarm)
 
+                    if spec.code == "6" and pipeline_type != "conjunto":
+                        datos_dir = self._resolve_datos_dir_for_limpieza(cmd, since)
+                        if datos_dir and datos_dir.exists():
+                            limpieza_cmd = [
+                                cmd[0],
+                                str(SCRIPTS_DIR / "limpieza_texto.py"),
+                                "--datos-dir",
+                                str(datos_dir),
+                            ]
+                            self.log(f"🧼 Ejecutando limpieza de texto: {datos_dir}")
+                            limpieza_result = subprocess.run(
+                                limpieza_cmd,
+                                env=current_env,
+                                cwd=str(REPO_ROOT),
+                                capture_output=True,
+                                text=True,
+                            )
+                            if limpieza_result.returncode == 0:
+                                self.log("✅ Limpieza de texto completada")
+                            else:
+                                self.log(f"⚠️ Limpieza de texto falló con código {limpieza_result.returncode}")
+
                     if spec.code == "4":
                         output_dir_arg = _extract_flag_value(cmd, "--output-dir") or str(REPO_ROOT / "Facebook")
                         report_tag = build_report_tag(since, "Facebook")
@@ -902,13 +946,13 @@ class OrquestadorGUI:
                         break
 
                     self.log(f"❌ Error en {spec.label} (Código {return_code})")
-                    if not self.continue_error_var.get():
+                    if pipeline_type != "conjunto" and not self.continue_error_var.get():
                         self.log("Abortando ejecución.")
                         break
 
             except Exception as exc:
                 self.log(f"💥 Error inesperado ejecutando {spec.label}: {exc}")
-                if not self.continue_error_var.get():
+                if pipeline_type != "conjunto" and not self.continue_error_var.get():
                     break
             finally:
                 if heartbeat_stop is not None:

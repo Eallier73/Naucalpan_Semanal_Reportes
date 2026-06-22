@@ -130,6 +130,8 @@ def read_wordlist(path: Path) -> set[str]:
 
 def weekly_input_dir(base_dir: Path, since: str) -> Path:
     base_path = Path(base_dir)
+    if (base_path / "material_institucional.txt").exists() or (base_path / "material_comentarios.txt").exists():
+        return base_path
     tag = build_report_tag(since, "Datos")
     if base_path.name == tag:
         return base_path

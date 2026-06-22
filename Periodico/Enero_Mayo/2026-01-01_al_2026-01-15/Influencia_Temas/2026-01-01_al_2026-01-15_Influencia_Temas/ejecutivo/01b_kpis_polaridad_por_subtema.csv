@@ -1,15 +1,15 @@
 tema_id,subtema,nombre_completo,participacion_pct,intensidad_media,impacto_en_polaridad,direccion,confianza,contribucion_pct,coef_ridge,coef_logit,correlacion
-0,agua,Servicios e Infraestructura Pública - Agua,2.03,-0.0088,Media,Polaridad negativa,Media,1.65,0.046289,0.02316,0.165342
-0,alumbrado,Servicios e Infraestructura Pública - Alumbrado,2.81,0.0827,Alta,Polaridad positiva,Alta,6.72,0.188508,0.087479,0.226314
-0,basura,Servicios e Infraestructura Pública - Basura,6.02,-0.0485,Alta,Polaridad negativa,Alta,8.98,0.251927,0.033298,0.3656
-1,delitos_patrimoniales,Seguridad y Criminalidad - Delitos_patrimoniales,16.47,-0.0942,Alta,Polaridad negativa,Alta,19.58,0.549503,0.026319,0.558174
-1,prevencion_vigilancia,Seguridad y Criminalidad - Prevencion_vigilancia,14.15,0.0442,Alta,Polaridad positiva,Alta,6.99,0.19619,0.067937,0.244262
-1,violencia_crimen_organizado,Seguridad y Criminalidad - Violencia_crimen_organizado,9.36,-0.0819,Alta,Polaridad negativa,Alta,12.76,0.35804,0.024177,0.3804
-1,violencia_personas,Seguridad y Criminalidad - Violencia_personas,3.14,-0.0215,Alta,Polaridad negativa,Alta,7.24,0.203216,0.044027,0.279555
-2,drenaje,Medio Ambiente y Servicios de Agua - Drenaje,0.67,-0.0855,Alta,Polaridad negativa,Baja,4.2,0.117772,0.000964,0.146255
-2,pavimento,Medio Ambiente y Servicios de Agua - Pavimento,0.55,-0.02,Alta,Polaridad negativa,Baja,2.42,0.067985,0.007382,0.073215
-2,vialidad,Medio Ambiente y Servicios de Agua - Vialidad,6.2,-0.0247,Alta,Polaridad negativa,Media,2.68,0.075166,0.017017,0.088046
-3,obras,Obra Pública e Inversión - Obras,4.73,-0.0018,Alta,Polaridad negativa,Alta,6.83,0.191678,0.053885,0.261126
-4,cultura,Educación y Cultura - Cultura,2.03,-0.0255,Alta,Polaridad negativa,Alta,3.25,0.09125,0.025565,0.30959
-4,educacion,Educación y Cultura - Educacion,2.48,-0.0056,Alta,Polaridad negativa,Alta,5.15,0.144529,0.043088,0.322368
-6,gobierno,Gobernanza y Administración Pública - Gobierno,16.0,-0.0704,Alta,Polaridad negativa,Alta,11.55,0.324234,0.026429,0.445975
+0,agua,Servicios e Infraestructura Pública - Agua,2.3,-0.0003,Media,Polaridad positiva,Media,1.69,0.044695,0.015809,0.141744
+0,alumbrado,Servicios e Infraestructura Pública - Alumbrado,2.33,0.0872,Alta,Polaridad positiva,Media,4.15,0.109898,0.058631,0.13184
+0,basura,Servicios e Infraestructura Pública - Basura,4.88,-0.0468,Alta,Polaridad negativa,Alta,6.29,0.166624,0.026204,0.232045
+1,delitos_patrimoniales,Seguridad y Criminalidad - Delitos_patrimoniales,15.15,-0.2014,Alta,Polaridad negativa,Alta,26.3,0.697179,0.015088,0.687948
+1,prevencion_vigilancia,Seguridad y Criminalidad - Prevencion_vigilancia,13.78,0.066,Alta,Polaridad positiva,Alta,6.76,0.179112,0.055293,0.227407
+1,violencia_crimen_organizado,Seguridad y Criminalidad - Violencia_crimen_organizado,7.47,-0.1441,Alta,Polaridad negativa,Alta,14.09,0.373366,0.011729,0.373421
+1,violencia_personas,Seguridad y Criminalidad - Violencia_personas,2.38,-0.0197,Alta,Polaridad negativa,Media,5.35,0.141708,0.025634,0.187177
+2,drenaje,Medio Ambiente y Servicios de Agua - Drenaje,0.56,-0.0928,Alta,Polaridad negativa,Baja,3.98,0.105576,-0.001022,0.13867
+2,pavimento,Medio Ambiente y Servicios de Agua - Pavimento,0.52,-0.0245,Media,Polaridad negativa,Baja,1.76,0.046708,0.006599,0.048985
+2,vialidad,Medio Ambiente y Servicios de Agua - Vialidad,6.46,-0.0219,Media,Polaridad negativa,Baja,1.49,0.039619,0.007309,0.038154
+3,obras,Obra Pública e Inversión - Obras,5.04,0.0322,Alta,Polaridad positiva,Alta,6.1,0.161566,0.055303,0.21237
+4,cultura,Educación y Cultura - Cultura,1.83,0.0167,Alta,Polaridad positiva,Alta,4.95,0.131319,0.026277,0.223927
+4,educacion,Educación y Cultura - Educacion,2.82,0.0119,Alta,Polaridad positiva,Alta,3.47,0.092028,0.043899,0.230733
+6,gobierno,Gobernanza y Administración Pública - Gobierno,16.28,-0.1092,Alta,Polaridad negativa,Alta,13.63,0.361197,0.02024,0.404902

@@ -1,0 +1,70 @@
+Analiza publicaciones institucionales de la semana correspondientes a estos casos:
+1. Gobierno de Naucalpan
+2. Isaac Montoya
+
+El corpus mezcla publicaciones institucionales de Twitter/X, Facebook y YouTube. Tu tarea es identificar los temas de comunicacion que aparecen en esas publicaciones y diferenciar claramente el enfoque de cada caso.
+
+Resumen cuantitativo del corpus:
+- Total de publicaciones institucionales: 259
+- Gobierno de Naucalpan: 174
+- Isaac Montoya: 85
+- Twitter/X: 61
+- Facebook: 198
+- YouTube: 0
+- Distribucion por caso y red:
+  - Gobierno de Naucalpan: Twitter/X=39, Facebook=135, YouTube=0
+  - Isaac Montoya: Twitter/X=22, Facebook=63, YouTube=0
+
+OBJETIVO ANALITICO:
+- Construir un catalogo comun de EXACTAMENTE 8 temas transversales que describan la agenda institucional observada.
+- Explicar brevemente en que consiste cada tema.
+- Diferenciar como aparece cada tema en cada caso.
+- Asignar un porcentaje a cada tema para cada caso usando como base la proporcion relativa de publicaciones institucionales asociadas a ese tema.
+- El resultado debe servir para dos productos: un reporte descriptivo de temas y una tabla CSV de porcentajes por tema para cada caso.
+
+REGLAS:
+- Usa el mismo catalogo de temas para todos los casos.
+- Para cada caso, los porcentajes deben sumar 100.
+- Si un tema no aparece practicamente en un caso, puedes usar 0.0.
+- No uses engagement ni importancia mediatica como criterio de porcentaje; usa frecuencia relativa dentro del corpus de publicaciones institucionales.
+- Si el mismo mensaje aparece replicado en varias redes, consideralo parte del mismo tema, pero manten su presencia como publicaciones distintas si estan efectivamente repetidas en redes diferentes.
+- Escribe todo en espanol.
+- No inventes temas que no esten sustentados por el corpus.
+
+SALIDA OBLIGATORIA:
+Devuelve SOLO un JSON valido, sin markdown, sin comentarios, sin texto adicional, con esta estructura exacta:
+{
+  "titulo": "ANALISIS TEMATICO DE PUBLICACIONES INSTITUCIONALES DE NAUCALPAN - MAYO DE 2026",
+  "resumen_casos": [
+    {
+      "caso": "gobierno_naucalpan",
+      "nombre": "Gobierno de Naucalpan",
+      "descripcion_general": "Resumen ejecutivo breve del enfoque de comunicacion."
+    },
+    {
+      "caso": "isaac_montoya",
+      "nombre": "Isaac Montoya",
+      "descripcion_general": "Resumen ejecutivo breve del enfoque de comunicacion."
+    }
+  ],
+  "temas": [
+    {
+      "tema": "NOMBRE DEL TEMA EN MAYUSCULAS",
+      "descripcion": "Descripcion breve del tema.",
+      "enfoques": {
+        "gobierno_naucalpan": "Como aparece el tema en Gobierno de Naucalpan.",
+        "isaac_montoya": "Como aparece el tema en Isaac Montoya."
+      },
+      "porcentajes": {
+"gobierno_naucalpan": 0.0, "isaac_montoya": 0.0
+      }
+    }
+  ]
+}
+
+RESTRICCIONES DE FORMATO:
+- EXACTAMENTE 8 elementos en "temas".
+- "tema" siempre en MAYUSCULAS.
+- "descripcion" y cada valor de "enfoques" deben ser breves y concretos.
+- Los porcentajes deben expresarse como numeros, no como texto, con uno o dos decimales si hace falta.
+- No devuelvas bloques de codigo ni fences.
