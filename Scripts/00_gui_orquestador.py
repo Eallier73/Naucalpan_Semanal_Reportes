@@ -18,6 +18,8 @@ from time import monotonic
 from tkinter import filedialog, messagebox, scrolledtext, simpledialog, ttk
 import wave
 
+from subir_ia_export import REQUIRED_PIPELINE_CODES, export_week_to_subir_ia
+
 
 def manual_load_dotenv(path: Path) -> bool:
     try:
@@ -79,6 +81,23 @@ build_report_tag = ORQUESTADOR.build_report_tag
 
 DEFAULT_GLOBAL_SINCE, DEFAULT_GLOBAL_BEFORE = iso_week_to_range(DEFAULT_GLOBAL_ISO_WEEK)
 PERIOD_FOLDER_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2})_al_(\d{4}-\d{2}-\d{2})$")
+
+SNA_STEPS = [
+    ("Consolidar histórico SNA", "11_consolidar_historico_sna.py", []),
+    ("LDA SNA", "12_lda_sna.py", ["--k-min", "25", "--k-max", "35", "--selection-mode", "informative"]),
+    ("Subclusters Louvain", "12b_subclusters_louvain.py", ["--resolution", "1.4", "--min-sub-size", "3"]),
+    ("Diagnóstico de umbrales", "12c_diagnostico_umbrales.py", []),
+    ("Red completa", "12c_red_completa.py", []),
+    ("Cuentas por clusters", "18_cuentas_clusters.py", []),
+    ("Red de cuentas", "12d_red_cuentas.py", []),
+    ("Red de posiciones discursivas", "19_red_posiciones_discursivas.py", []),
+]
+
+SNA_GUIADA_STEPS = [
+    ("Red completa guiada", "12c_red_completa_guiada.py", []),
+    ("Red de cuentas guiada", "12d_red_cuentas_guiada.py", []),
+    ("Red de posiciones guiada", "19_red_posiciones_guiada.py", []),
+]
 
 
 def parse_date_range(since: str, before: str) -> tuple[str, str]:
@@ -265,27 +284,6 @@ class OrquestadorGUI:
         self.before_var = tk.StringVar(value=DEFAULT_GLOBAL_BEFORE)
         ttk.Entry(date_frame, textvariable=self.before_var, width=15).grid(row=1, column=3, sticky=tk.W, padx=5)
 
-        pipeline_frame = ttk.LabelFrame(main_frame, text="Selección de Pipelines", padding="10")
-        pipeline_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-
-        self.pipeline_vars = {}
-        canvas = tk.Canvas(pipeline_frame)
-        scrollbar = ttk.Scrollbar(pipeline_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
-
-        scrollable_frame.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        for pipe in PIPELINES:
-            variable = tk.BooleanVar(value=False)
-            self.pipeline_vars[pipe.code] = variable
-            ttk.Checkbutton(scrollable_frame, text=f"{pipe.code}) {pipe.label}", variable=variable).pack(anchor=tk.W, pady=2)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
         options_frame = ttk.Frame(main_frame, padding="5")
         options_frame.pack(fill=tk.X)
 
@@ -310,14 +308,53 @@ class OrquestadorGUI:
             variable=self.continue_error_var,
         ).pack(side=tk.LEFT, padx=10)
 
+        sna_frame = ttk.LabelFrame(main_frame, text="SNA Histórico", padding="8")
+        sna_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(
+            sna_frame,
+            text="Ejecuta la cadena SNA completa (consolidador -> LDA -> redes)",
+        ).grid(row=0, column=0, sticky=tk.W, padx=5)
+
+        self.sna_include_guiada_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            sna_frame,
+            text="Incluir variantes guiadas (3 scripts extra)",
+            variable=self.sna_include_guiada_var,
+        ).grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
+
         control_frame = ttk.Frame(main_frame, padding="10")
         control_frame.pack(fill=tk.X)
 
         self.play_button = ttk.Button(control_frame, text="▶ PLAY / EJECUTAR", command=self.start_execution)
         self.play_button.pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
 
+        self.sna_button = ttk.Button(control_frame, text="🧠 EJECUTAR SNA", command=self.start_sna_execution)
+        self.sna_button.pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
+
         self.stop_button = ttk.Button(control_frame, text="⏹ DETENER", command=self.stop_execution, state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
+
+        pipeline_frame = ttk.LabelFrame(main_frame, text="Selección de Pipelines", padding="10")
+        pipeline_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        self.pipeline_vars = {}
+        canvas = tk.Canvas(pipeline_frame)
+        scrollbar = ttk.Scrollbar(pipeline_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        for pipe in PIPELINES:
+            variable = tk.BooleanVar(value=False)
+            self.pipeline_vars[pipe.code] = variable
+            ttk.Checkbutton(scrollable_frame, text=f"{pipe.code}) {pipe.label}", variable=variable).pack(anchor=tk.W, pady=2)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         log_frame = ttk.LabelFrame(main_frame, text="Consola de Salida", padding="5")
         log_frame.pack(fill=tk.BOTH, expand=True, pady=5)
@@ -511,9 +548,16 @@ class OrquestadorGUI:
                 unique_selected.append(item)
                 seen.add(item.code)
 
+        if "13" in seen:
+            unique_selected = [item for item in unique_selected if item.code != "13"] + [PIPELINES_BY_CODE["13"]]
+
         return unique_selected
 
     def start_execution(self):
+        if self.running_process is not None:
+            messagebox.showwarning("En ejecución", "Ya hay un proceso en ejecución.")
+            return
+
         selected = self.get_selected_pipelines()
         if not selected:
             messagebox.showwarning("Atención", "Selecciona al menos un pipeline para ejecutar.")
@@ -521,6 +565,13 @@ class OrquestadorGUI:
 
         pipeline_type = self.pipeline_type_var.get()
         special_folder = self.special_folder_var.get().strip()
+
+        if pipeline_type != "semanal" and any(item.code == "13" for item in selected):
+            messagebox.showwarning(
+                "Material para IA",
+                "El pipeline 13 solo está disponible en el modo Semanal (Estándar).",
+            )
+            return
 
         if pipeline_type in ["periodico", "conjunto"] and not special_folder:
             messagebox.showwarning("Atención", "Debes seleccionar una Carpeta Especial para este tipo de pipeline.")
@@ -575,6 +626,33 @@ class OrquestadorGUI:
             args=(prepared, since, before, pipeline_type, special_folder),
             daemon=True
         )
+        thread.start()
+
+    def build_python_exec(self) -> str:
+        if self.use_venv_var.get() and self.venv_python:
+            return self.venv_python
+        return sys.executable
+
+    def start_sna_execution(self):
+        if self.running_process is not None:
+            messagebox.showwarning("En ejecución", "Ya hay un proceso en ejecución.")
+            return
+
+        steps = list(SNA_STEPS)
+        if self.sna_include_guiada_var.get():
+            steps.extend(SNA_GUIADA_STEPS)
+
+        self.clear_log()
+        self.log("🧠 Iniciando ejecución SNA histórica...")
+        self.log("Etapas: " + ", ".join(label for label, _, _ in steps))
+
+        self.play_button.config(state=tk.DISABLED)
+        self.sna_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.NORMAL)
+        self.root.update_idletasks()
+        self.stop_requested = False
+
+        thread = threading.Thread(target=self.run_sna_pipelines, args=(steps,), daemon=True)
         thread.start()
 
     def stop_execution(self):
@@ -719,6 +797,73 @@ class OrquestadorGUI:
         finally:
             self.root.after(0, self.finish_ui)
 
+    def run_sna_pipelines(self, steps):
+        python_exec = self.build_python_exec()
+        had_error = False
+
+        try:
+            for label, script_name, args in steps:
+                if self.stop_requested:
+                    had_error = True
+                    break
+
+                cmd = [python_exec, str(SCRIPTS_DIR / script_name), *args]
+                self.log(f"\n--- Ejecutando SNA: {label} ---")
+                self.log(f"Comando: {render_command(cmd)}")
+
+                heartbeat_stop = None
+                try:
+                    self.running_process = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        cwd=str(REPO_ROOT),
+                        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+                        bufsize=1,
+                        universal_newlines=True,
+                    )
+
+                    last_output_at = {"value": monotonic()}
+                    heartbeat_stop = self.start_heartbeat(label, last_output_at)
+
+                    assert self.running_process.stdout is not None
+                    for line in self.running_process.stdout:
+                        last_output_at["value"] = monotonic()
+                        self.log(line.rstrip())
+
+                    self.running_process.wait()
+                    return_code = self.running_process.returncode
+
+                    if return_code == 0:
+                        self.log(f"✅ {label} finalizado con éxito.")
+                        self.root.after(0, self.trigger_stage_alarm)
+                    else:
+                        had_error = True
+                        if self.stop_requested:
+                            self.log("⏹ Proceso SNA detenido por el usuario.")
+                            break
+                        self.log(f"❌ Error en {label} (Código {return_code})")
+                        if not self.continue_error_var.get():
+                            self.log("Abortando ejecución SNA.")
+                            break
+
+                except Exception as exc:
+                    had_error = True
+                    self.log(f"💥 Error inesperado en {label}: {exc}")
+                    if not self.continue_error_var.get():
+                        break
+                finally:
+                    if heartbeat_stop is not None:
+                        heartbeat_stop.set()
+
+            if not had_error and not self.stop_requested:
+                self.log("📁 Resultados SNA disponibles en: SNA/Resultados/historico")
+
+            self.log("\n🏁 Proceso SNA terminado.")
+        finally:
+            self.root.after(0, self.finish_ui)
+
     def run_periodico(self, prepared_template, since, before, special_folder):
         parent_path = Path(special_folder)
         if not parent_path.exists():
@@ -837,9 +982,13 @@ class OrquestadorGUI:
         pipeline_type = self.pipeline_type_var.get()
         facebook_posts_csv = ""
         cleaned_week_dirs = set()
+        selected_codes = {spec.code for spec, _, _ in prepared}
+        completed_codes = set()
+        had_error = False
 
         for index, (spec, cmd, env_vars) in enumerate(prepared):
             if self.stop_requested:
+                had_error = True
                 break
 
             self.log(f"\n--- Ejecutando: {spec.label} ---")
@@ -900,6 +1049,7 @@ class OrquestadorGUI:
                 return_code = self.running_process.returncode
 
                 if return_code == 0:
+                    completed_codes.add(spec.code)
                     self.log(f"✅ {spec.label} finalizado con éxito.")
                     self.root.after(0, self.trigger_stage_alarm)
 
@@ -941,6 +1091,7 @@ class OrquestadorGUI:
                             self.log(f"⚠️ CSV esperado no encontrado: {facebook_posts_csv}")
                             facebook_posts_csv = ""
                 else:
+                    had_error = True
                     if self.stop_requested:
                         self.log("⏹ Proceso detenido por el usuario.")
                         break
@@ -951,6 +1102,7 @@ class OrquestadorGUI:
                         break
 
             except Exception as exc:
+                had_error = True
                 self.log(f"💥 Error inesperado ejecutando {spec.label}: {exc}")
                 if pipeline_type != "conjunto" and not self.continue_error_var.get():
                     break
@@ -958,10 +1110,27 @@ class OrquestadorGUI:
                 if heartbeat_stop is not None:
                     heartbeat_stop.set()
 
+        if (
+            pipeline_type == "semanal"
+            and not self.stop_requested
+            and not had_error
+            and "13" not in selected_codes
+            and REQUIRED_PIPELINE_CODES.issubset(selected_codes)
+            and REQUIRED_PIPELINE_CODES.issubset(completed_codes)
+        ):
+            try:
+                destination_dir = export_week_to_subir_ia(since)
+                self.log(f"📦 Archivos listos para IA en: {destination_dir}")
+            except FileNotFoundError as exc:
+                self.log(f"⚠️ No se pudo preparar Subir_IA: {exc}")
+            except Exception as exc:
+                self.log(f"⚠️ Error preparando Subir_IA: {exc}")
+
         self.log("\n🏁 Proceso terminado.")
 
     def finish_ui(self):
         self.play_button.config(state=tk.NORMAL)
+        self.sna_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
         self.running_process = None
         if not self.stop_requested:

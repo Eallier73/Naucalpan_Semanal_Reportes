@@ -40,6 +40,7 @@ from queries_config import (
     FACEBOOK_PAGES,
 )
 from output_naming import build_report_tag
+from subir_ia_export import REQUIRED_PIPELINE_CODES, export_week_to_subir_ia
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -78,6 +79,7 @@ PIPELINES = [
     PipelineSpec("10", "publicaciones_institucionales", "Publicaciones Institucionales con Claude", "10_publicaciones_institucionales_claude.py"),
     PipelineSpec("11", "analisis_polaridad", "Analisis de Polaridad", "11_analisis_polaridad.py"),
     PipelineSpec("12", "analisis_seguridad", "Analisis de Seguridad/Inseguridad", "12_analisis_seguridad.py"),
+    PipelineSpec("13", "material_ia", "Preparar material para IA (Subir_IA)", "subir_ia_export.py"),
 ]
 
 PIPELINES_BY_CODE = {item.code: item for item in PIPELINES}
@@ -734,6 +736,15 @@ def build_analisis_seguridad(since: str, before: str, use_defaults: bool = False
     return cmd, {}
 
 
+def build_material_ia(since: str) -> tuple[list[str], dict[str, str]]:
+    cmd = [
+        sys.executable,
+        str(SCRIPTS_DIR / "subir_ia_export.py"),
+        "--since", since,
+    ]
+    return cmd, {}
+
+
 def build_pipeline(spec: PipelineSpec, since: str, before: str, use_defaults: bool = False, facebook_posts_csv: str = "", is_periodico: bool = False) -> tuple[list[str], dict[str, str]]:
     if spec.key == "youtube":
         return build_youtube(since, before, use_defaults)
@@ -768,6 +779,8 @@ def build_pipeline(spec: PipelineSpec, since: str, before: str, use_defaults: bo
         return build_analisis_polaridad(since, before, use_defaults)
     if spec.key == "analisis_seguridad":
         return build_analisis_seguridad(since, before, use_defaults)
+    if spec.key == "material_ia":
+        return build_material_ia(since)
     raise ValueError(f"Pipeline no soportado: {spec.key}")
 
 
@@ -878,6 +891,9 @@ def main() -> None:
                 consolidador_spec = selected.pop(index_6)
                 index_dep = next(index for index, item in enumerate(selected) if item.code == dependent_code)
                 selected.insert(index_dep, consolidador_spec)
+
+    if any(item.code == "13" for item in selected):
+        selected = [item for item in selected if item.code != "13"] + [PIPELINES_BY_CODE["13"]]
     
     # 4️⃣ PASO 4: Configurar según modo
     facebook_posts_csv = ""  # CSV generado por el extractor de posts
@@ -950,6 +966,7 @@ def main() -> None:
     facebook_posts_csv = ""  # CSV generado por extractor 4
     
     cleaned_week_dirs: set[str] = set()
+    completed_codes: set[str] = set()
 
     for spec, cmd, env_overrides in prepared:
         week_dir = weekly_output_dir_for_command(spec, since, cmd)
@@ -965,6 +982,7 @@ def main() -> None:
         env.update(env_overrides)
         result = subprocess.run(cmd, env=env, cwd=str(REPO_ROOT))
         if result.returncode == 0:
+            completed_codes.add(spec.code)
             print(f"✅ {spec.label} completado")
             
             # Si es el extractor de Posts (4), calcular el path del CSV generado
@@ -1008,6 +1026,20 @@ def main() -> None:
         print(f"❌ {spec.label} falló con código {result.returncode}")
         if not continue_on_error:
             sys.exit(result.returncode)
+
+    selected_codes = {spec.code for spec, _, _ in prepared}
+    if (
+        "13" not in selected_codes
+        and REQUIRED_PIPELINE_CODES.issubset(selected_codes)
+        and REQUIRED_PIPELINE_CODES.issubset(completed_codes)
+    ):
+        try:
+            destination_dir = export_week_to_subir_ia(since)
+            print(f"📦 Archivos listos para IA en: {destination_dir}")
+        except FileNotFoundError as exc:
+            print(f"⚠️ No se pudo preparar Subir_IA: {exc}")
+        except Exception as exc:
+            print(f"⚠️ Error preparando Subir_IA: {exc}")
 
     print("\n" + "="*70)
     print("✅ EJECUCIÓN TERMINADA")
