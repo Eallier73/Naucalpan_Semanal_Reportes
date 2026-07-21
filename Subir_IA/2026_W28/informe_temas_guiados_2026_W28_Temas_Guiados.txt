@@ -1,0 +1,42 @@
+ANALISIS DE TEMAS GUIADOS POR PALABRAS CLAVE
+========================================================================
+
+Semana: 2026_W28_Temas_Guiados
+Documentos analizados: 3,263
+No clasificados: 2,252
+Fecha de ejecucion: 2026-07-13 08:52:29
+
+DISTRIBUCION POR TEMA
+------------------------------------------------------------------------
+Tema 0 - Servicios: 144 docs (4.41%)
+Tema 1 - Seguridad: 493 docs (15.11%)
+Tema 2 - Vialidades: 130 docs (3.98%)
+Tema 3 - Obras y proyectos: 57 docs (1.75%)
+Tema 4 - Morena (+ / neutro): 33 docs (1.01%)
+Tema 5 - Morena (-): 112 docs (3.43%)
+Tema 6 - Corrupcion: 42 docs (1.29%)
+No clasificados: 2,252 docs (69.02%)
+
+TOP PALABRAS POR TEMA
+------------------------------------------------------------------------
+Tema 0 - Servicios:
+  basura (38), agua (33), luz (32), tiradero (18), luces (11), luminarias (9), bolsa (7), limpieza (5), tirar (5), oapas (4), fuga (3), hidraulica (3), oscuro (3), inundacion (3), corte (3)
+
+Tema 1 - Seguridad:
+  policia (204), seguridad (153), delincuentes (107), guardia (30), robo (30), proteccion (26), delincuencia (23), peligro (18), vigilancia (14), ladrones (14), delincuente (14), inseguridad (10), patrullas (5), criminal (5), peligroso (5)
+
+Tema 2 - Vialidades:
+  calle (35), transito (26), calles (25), camino (11), puente (10), baches (10), vial (8), avenida (8), vialidades (7), circulacion (7), aguas (6), carretera (6), drenaje (5), hoyos (4), esquina (4)
+
+Tema 3 - Obras y proyectos:
+  desarrollo (22), rehabilitacion (20), obras (11), puente (10), obra (9), infraestructura (8), mantenimiento (7), ampliacion (7), construccion (6), proyecto (6), edificio (3), mejoramiento (2), proyectos (1), renovacion (1)
+
+Tema 4 - Morena (+ / neutro):
+  transformacion (22), sheinbaum (14), lopez (8), morenistas (5), obrador (4), movimiento (4), cuarta (2), amlo (1)
+
+Tema 5 - Morena (-):
+  corruptos (69), corrupcion (38), rateros (27), ladrones (14), mentirosos (10), cartel (8), narcogobierno (7), traidores (6), kk (3), morenarcos (3), narcomorena (3), dictadura (3), mugrena (1), monreal (1), adan (1)
+
+Tema 6 - Corrupcion:
+  corruptos (69), corrupcion (38), corrupto (16), corrupta (6), corruptas (5), extorsionar (5), complices (3), mochada (3), coludidos (3), complicidad (2), mordida (2), enriquecer (2), aviadores (1), desfalco (1), estafa (1)
+
