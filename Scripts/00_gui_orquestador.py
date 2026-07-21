@@ -84,16 +84,14 @@ PERIOD_FOLDER_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2})_al_(\d{4}-\d{2}-\d{2})
 
 SNA_STEPS = [
     ("Consolidar histórico SNA", "11_consolidar_historico_sna.py", []),
-    ("LDA SNA", "12_lda_sna.py", ["--k-min", "25", "--k-max", "35", "--selection-mode", "informative"]),
+    ("LDA SNA", "12_lda_sna.py", ["--k-min", "25", "--k-max", "35", "--selection-mode", "coherence"]),
+    ("Evaluar calidad temática", "sna_topic_quality.py", []),
     ("Subclusters Louvain", "12b_subclusters_louvain.py", ["--resolution", "1.4", "--min-sub-size", "3"]),
     ("Diagnóstico de umbrales", "12c_diagnostico_umbrales.py", []),
     ("Red completa", "12c_red_completa.py", []),
     ("Cuentas por clusters", "18_cuentas_clusters.py", []),
     ("Red de cuentas", "12d_red_cuentas.py", []),
     ("Red de posiciones discursivas", "19_red_posiciones_discursivas.py", []),
-]
-
-SNA_GUIADA_STEPS = [
     ("Red completa guiada", "12c_red_completa_guiada.py", []),
     ("Red de cuentas guiada", "12d_red_cuentas_guiada.py", []),
     ("Red de posiciones guiada", "19_red_posiciones_guiada.py", []),
@@ -130,6 +128,22 @@ def ensure_pipeline_before(selected, before_code: str, after_code: str):
     after_idx = find_selected_index(selected, after_code)
     insert_at = after_idx if after_idx is not None else len(selected)
     selected.insert(insert_at, item)
+    return selected
+
+
+def ensure_pipeline_after(selected, target_code: str, dependency_codes: list[str]):
+    target_idx = find_selected_index(selected, target_code)
+    dependency_indexes = [
+        index for index, item in enumerate(selected) if item.code in dependency_codes
+    ]
+    if target_idx is None or not dependency_indexes or target_idx > max(dependency_indexes):
+        return selected
+
+    target = selected.pop(target_idx)
+    insert_at = max(
+        index for index, item in enumerate(selected) if item.code in dependency_codes
+    ) + 1
+    selected.insert(insert_at, target)
     return selected
 
 
@@ -313,15 +327,8 @@ class OrquestadorGUI:
 
         ttk.Label(
             sna_frame,
-            text="Ejecuta la cadena SNA completa (consolidador -> LDA -> redes)",
+            text="Ejecuta la cadena SNA completa, incluidas las tres redes guiadas",
         ).grid(row=0, column=0, sticky=tk.W, padx=5)
-
-        self.sna_include_guiada_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            sna_frame,
-            text="Incluir variantes guiadas (3 scripts extra)",
-            variable=self.sna_include_guiada_var,
-        ).grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
 
         control_frame = ttk.Frame(main_frame, padding="10")
         control_frame.pack(fill=tk.X)
@@ -541,6 +548,10 @@ class OrquestadorGUI:
 
             selected = ensure_pipeline_before(selected, "6", dep_code)
 
+        selected = ensure_pipeline_after(
+            selected, "6", ["1", "2", "3", "4", "5", "14", "15"]
+        )
+
         seen = set()
         unique_selected = []
         for item in selected:
@@ -639,8 +650,6 @@ class OrquestadorGUI:
             return
 
         steps = list(SNA_STEPS)
-        if self.sna_include_guiada_var.get():
-            steps.extend(SNA_GUIADA_STEPS)
 
         self.clear_log()
         self.log("🧠 Iniciando ejecución SNA histórica...")

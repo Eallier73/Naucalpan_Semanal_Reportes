@@ -6,6 +6,7 @@ from __future__ import annotations
 import html
 import json
 import math
+import re
 import unicodedata
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -25,7 +26,7 @@ DEFAULT_NEGATIVE_DICTIONARY = DEFAULT_DICT_DIR / "diccionario_palabras_negativas
 CATEGORY_COLORS = {
     "Agua": "#1f77b4",
     "Alumbrado": "#f2c744",
-    "Americo": "#9467bd",
+    "Gobierno municipal": "#9467bd",
     "Basura": "#2ca02c",
     "Corrupcion": "#d62728",
     "Delitos": "#8c564b",
@@ -53,10 +54,147 @@ STANCE_LABELS = {
     "sin_postura": "Sin postura",
 }
 
+# La postura se refiere especificamente a Isaac Montoya y a su
+# administracion municipal. No reutiliza los diccionarios de polaridad.
+STANCE_TARGET_WORDS = {
+    "isaac", "montoya", "alcalde", "gobnau", "ciudadnaucalpan", "ayuntamiento",
+}
+LOCAL_STRUCTURAL_TERMS = {
+    "Gobierno municipal": [
+        "isaac", "montoya", "alcalde", "presidente", "municipal", "gobnau",
+        "ciudadnaucalpan", "ayuntamiento", "naucalpan", "administracion",
+    ],
+}
+STANCE_SUPPORT_WORDS = {
+    "apoyo", "apoyar", "respaldo", "respaldar", "defensa", "defender",
+    "confiar", "confianza", "felicitar", "felicidades", "gracias",
+    "excelente", "adelante", "compromiso", "resultado", "resultados",
+    "orgullo", "bienestar", "cuidar", "cumplir", "transformacion",
+}
+STANCE_CRITIC_WORDS = {
+    "corrupta", "corrupto", "corrupcion", "ratera", "ratero", "ladrona",
+    "ladron", "inepta", "inepto", "incompetente", "pesima", "pesimo",
+    "mentirosa", "mentiroso", "mentira", "robo", "saqueo", "nepotismo",
+    "abandono", "incumplir", "incumplimiento", "fracaso", "renuncia",
+    "dimision", "verguenza", "delincuente", "criminal",
+}
+_TARGET_PATTERNS = [
+    re.compile(pattern)
+    for pattern in (
+        r"\bisaac(?:\s+martin)?\s+montoya(?:\s+marquez)?\b",
+        r"\bmontoya\b",
+        r"\balcalde\b",
+        r"\bpresidente\s+municipal\b",
+        r"\bgobierno\s+(?:municipal|de\s+naucalpan)\b",
+        r"\bayuntamiento(?:\s+de\s+naucalpan)?\b",
+        r"\bmunicipio\s+de\s+naucalpan\b",
+        r"\badministracion\s+municipal\b",
+        r"\bnaucalpan\s*gob\b",
+    )
+]
+_DEFENSE_PATTERNS = [
+    re.compile(pattern)
+    for pattern in (
+        r"\b(?:no|nunca)\s+(?:lo\s+)?(?:ataquen|critiquen|insulten|difamen)\b",
+        r"\bdejen\s+de\s+(?:atacar|criticar|insultar|difamar)\b",
+        r"\b(?:injusto|coraje)\s+que\s+(?:lo\s+)?(?:ataquen|critiquen|insulten)\b",
+        r"\b(?:estamos|estoy)\s+contigo\b",
+        r"\bno\s+esta\s+solo\b",
+        r"\bcuenta\s+conmigo\b",
+        r"\bcon\s+isaac\b",
+    )
+]
+_CRITIC_PATTERNS = [
+    re.compile(pattern)
+    for pattern in (
+        r"\bfuera\s+(?:isaac|montoya|el\s+alcalde)\b",
+        r"\b(?:isaac|montoya|alcalde).{0,30}\b(?:renuncia|que\s+se\s+vaya)\b",
+        r"\b(?:no|nunca)\s+(?:sirve|cumple|trabaja|resuelve)\b",
+        r"\b(?:ya\s+)?no\s+(?:(?:lo|la)\s+)?apoyo\b",
+    )
+]
+
 
 def normalize(value: Any) -> str:
     text = unicodedata.normalize("NFKD", str(value).strip().lower())
     return "".join(ch for ch in text if not unicodedata.combining(ch))
+
+
+def stance_from_evidence(support_hits: float, critic_hits: float) -> dict[str, Any]:
+    total = max(0.0, support_hits) + max(0.0, critic_hits)
+    score = (support_hits - critic_hits) / total if total else 0.0
+    if total <= 0:
+        stance = "sin_postura"
+    elif score >= 0.25:
+        stance = "apoyo_defensa"
+    elif score <= -0.25:
+        stance = "critica_oposicion"
+    else:
+        stance = "mixta_disputa"
+    return {
+        "stance": stance,
+        "stance_label": STANCE_LABELS[stance],
+        "stance_score": round(score, 4),
+        "stance_support_hits": round(support_hits, 2),
+        "stance_critic_hits": round(critic_hits, 2),
+        "stance_evidence": round(total, 2),
+    }
+
+
+def classify_stance_text(value: Any) -> dict[str, Any]:
+    """Clasifica postura hacia el alcalde/administracion, no tono emocional."""
+    normalized = normalize(value)
+    tokens = re.findall(r"[a-z]{3,}", normalized)
+    target_hits = sum(len(pattern.findall(normalized)) for pattern in _TARGET_PATTERNS)
+    if target_hits <= 0:
+        return {**stance_from_evidence(0.0, 0.0), "stance_target_hits": 0}
+
+    support_hits = float(sum(token in STANCE_SUPPORT_WORDS for token in tokens))
+    critic_hits = float(sum(token in STANCE_CRITIC_WORDS for token in tokens))
+    defensive_hits = sum(bool(pattern.search(normalized)) for pattern in _DEFENSE_PATTERNS)
+    direct_critic_hits = sum(bool(pattern.search(normalized)) for pattern in _CRITIC_PATTERNS)
+    support_hits += 2.0 * defensive_hits
+    critic_hits += 2.0 * direct_critic_hits
+
+    # "No apoyo" expresa critica, aunque contenga literalmente apoyo.
+    if re.search(r"\b(?:ya\s+)?no\s+(?:(?:lo|la)\s+)?apoyo\b", normalized):
+        support_hits = max(0.0, support_hits - 1.0)
+
+    result = stance_from_evidence(support_hits, critic_hits)
+    result["stance_target_hits"] = target_hits
+    return result
+
+
+def aggregate_stance_texts(values: Iterable[Any]) -> dict[str, Any]:
+    support_hits = 0.0
+    critic_hits = 0.0
+    target_hits = 0
+    classified_messages = 0
+    for value in values:
+        item = classify_stance_text(value)
+        target_hits += int(item.get("stance_target_hits", 0))
+        support_hits += float(item.get("stance_support_hits", 0.0))
+        critic_hits += float(item.get("stance_critic_hits", 0.0))
+        classified_messages += int(item.get("stance_evidence", 0.0) > 0)
+    result = stance_from_evidence(support_hits, critic_hits)
+    result.update({
+        "stance_target_hits": target_hits,
+        "stance_classified_messages": classified_messages,
+    })
+    return result
+
+
+def apply_stance_evidence(
+    annotation: dict[str, Any], evidence: dict[str, Any]
+) -> dict[str, Any]:
+    for key in (
+        "stance", "stance_label", "stance_score", "stance_support_hits",
+        "stance_critic_hits", "stance_evidence", "stance_target_hits",
+        "stance_classified_messages",
+    ):
+        if key in evidence:
+            annotation[key] = evidence[key]
+    return annotation
 
 
 @dataclass
@@ -109,6 +247,8 @@ def load_lexicons(
     category_index: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
     for row, keys in zip(topics.itertuples(index=False), topic_keys, strict=True):
         category = str(row.Categoria).strip()
+        if normalize(category) == "americo":
+            continue
         entry = {
             "name": category,
             "confidence": float(row.Confianza),
@@ -120,6 +260,17 @@ def load_lexicons(
             if previous is None or entry["confidence"] > previous["confidence"]:
                 category_index[key][category] = entry
 
+    for category, words in LOCAL_STRUCTURAL_TERMS.items():
+        for source_word, keys in zip(words, _lemma_keys(words), strict=True):
+            entry = {
+                "name": category,
+                "confidence": 0.90,
+                "delta_pmi": 0.0,
+                "source_word": source_word,
+            }
+            for key in keys:
+                category_index[key][category] = entry
+
     positive_words = _read_word_list(positive_dictionary)
     negative_words = _read_word_list(negative_dictionary)
     positive = set().union(*_lemma_keys(positive_words))
@@ -129,7 +280,10 @@ def load_lexicons(
         key: sorted(entries.values(), key=lambda item: -item["confidence"])
         for key, entries in category_index.items()
     }
-    category_names = sorted(topics["Categoria"].astype(str).unique())
+    category_names = sorted(
+        {name for name in topics["Categoria"].astype(str).unique() if normalize(name) != "americo"}
+        | set(LOCAL_STRUCTURAL_TERMS)
+    )
     fallback = [
         "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
         "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
@@ -158,7 +312,7 @@ def annotate_word(word: str, lexicons: GuidedLexicons) -> dict[str, Any]:
     else:
         polarity = "neutral"
         polarity_score = 0.0
-    stance = stance_from_score(polarity_score, int(in_positive) + int(in_negative))
+    stance_data = stance_from_evidence(0.0, 0.0)
     primary = categories[0] if categories else None
     return {
         "kind": "palabra",
@@ -169,9 +323,7 @@ def annotate_word(word: str, lexicons: GuidedLexicons) -> dict[str, Any]:
         "delta_pmi": primary["delta_pmi"] if primary else 0.0,
         "polarity": polarity,
         "polarity_score": polarity_score,
-        "stance": stance,
-        "stance_label": STANCE_LABELS[stance],
-        "stance_score": polarity_score,
+        **stance_data,
         "positive_hits": int(in_positive),
         "negative_hits": int(in_negative),
         "matched_weight": int(bool(categories) or in_positive or in_negative),
@@ -194,11 +346,13 @@ def aggregate_words(
     positive_hits = 0.0
     negative_hits = 0.0
     matched_weight = 0.0
+    stance_word_weights: Counter[str] = Counter()
     for word, raw_weight in weighted_words:
         weight = max(0.0, float(raw_weight))
         if weight <= 0:
             continue
         annotation = annotate_word(str(word), lexicons)
+        stance_word_weights[normalize(word)] += weight
         matched = False
         for category in annotation["categories"]:
             score = weight * float(category["confidence"])
@@ -226,19 +380,26 @@ def aggregate_words(
         }
         for name, score in category_scores.most_common()
     ]
-    if positive_hits and negative_hits:
-        polarity = "mixta"
-    elif positive_hits:
-        polarity = "positiva"
-    elif negative_hits:
-        polarity = "negativa"
-    else:
-        polarity = "neutral"
     polarity_total = positive_hits + negative_hits
     polarity_score = (
         (positive_hits - negative_hits) / polarity_total if polarity_total else 0.0
     )
-    stance = stance_from_score(polarity_score, polarity_total)
+    if not polarity_total:
+        polarity = "neutral"
+    elif polarity_score >= 0.20:
+        polarity = "positiva"
+    elif polarity_score <= -0.20:
+        polarity = "negativa"
+    else:
+        polarity = "mixta"
+    target_hits = sum(stance_word_weights[word] for word in STANCE_TARGET_WORDS)
+    support_hits = sum(stance_word_weights[word] for word in STANCE_SUPPORT_WORDS)
+    critic_hits = sum(stance_word_weights[word] for word in STANCE_CRITIC_WORDS)
+    stance_data = stance_from_evidence(
+        support_hits if target_hits else 0.0,
+        critic_hits if target_hits else 0.0,
+    )
+    stance_data["stance_target_hits"] = round(target_hits, 2)
     primary = categories[0] if categories else None
     return {
         "kind": kind,
@@ -249,24 +410,11 @@ def aggregate_words(
         "delta_pmi": 0.0,
         "polarity": polarity,
         "polarity_score": round(polarity_score, 4),
-        "stance": stance,
-        "stance_label": STANCE_LABELS[stance],
-        "stance_score": round(polarity_score, 4),
+        **stance_data,
         "positive_hits": round(positive_hits, 2),
         "negative_hits": round(negative_hits, 2),
         "matched_weight": round(matched_weight, 2),
     }
-
-
-def stance_from_score(score: float, evidence_weight: float) -> str:
-    """Mapea polaridad agregada a apoyo/defensa vs critica/oposicion."""
-    if evidence_weight <= 0:
-        return "sin_postura"
-    if score >= 0.20:
-        return "apoyo_defensa"
-    if score <= -0.20:
-        return "critica_oposicion"
-    return "mixta_disputa"
 
 
 def write_annotation_outputs(
@@ -296,6 +444,8 @@ def write_annotation_outputs(
             "postura": item.get("stance", "sin_postura"),
             "postura_etiqueta": item.get("stance_label", STANCE_LABELS["sin_postura"]),
             "postura_score": item.get("stance_score", 0.0),
+            "evidencia_postura": item.get("stance_evidence", 0.0),
+            "mensajes_con_postura": item.get("stance_classified_messages", 0),
             "coincidencias_positivas": item.get("positive_hits", 0),
             "coincidencias_negativas": item.get("negative_hits", 0),
             "peso_coincidente": item.get("matched_weight", 0),
@@ -309,6 +459,7 @@ def write_annotation_outputs(
         "categorias": dict(category_counts.most_common()),
         "polaridades": dict(polarity_counts.most_common()),
         "posturas": dict(stance_counts.most_common()),
+        "metodo_postura": "referencia a Isaac Montoya/gobierno municipal + senales independientes de apoyo o critica",
         "fuentes": {key: str(value) for key, value in source_paths.items()},
     }
     (out_dir / f"{prefix}_resumen.json").write_text(
@@ -323,7 +474,9 @@ def compact_annotations_for_html(annotations: dict[str, dict[str, Any]]) -> dict
     for node_id, item in annotations.items():
         categories = item.get("categories") or []
         polarity = item.get("polarity") or "neutral"
-        if not categories and polarity == "neutral":
+        stance = item.get("stance") or "sin_postura"
+        network_topics = item.get("network_topics") or []
+        if not categories and polarity == "neutral" and stance == "sin_postura" and not network_topics:
             continue
         compact[node_id] = {
             "categories": categories,
@@ -331,9 +484,10 @@ def compact_annotations_for_html(annotations: dict[str, dict[str, Any]]) -> dict
             "category_confidence": item.get("category_confidence") or 0.0,
             "polarity": polarity,
             "polarity_score": item.get("polarity_score") or 0.0,
-            "stance": item.get("stance") or "sin_postura",
+            "stance": stance,
             "stance_label": item.get("stance_label") or STANCE_LABELS["sin_postura"],
-            "stance_score": item.get("stance_score") or item.get("polarity_score") or 0.0,
+            "stance_score": item.get("stance_score") or 0.0,
+            "network_topics": network_topics,
         }
     return compact
 
@@ -344,6 +498,9 @@ def inject_guided_layer(
     category_colors: dict[str, str],
     title: str,
     panel_top_px: int = 12,
+    network_topic_labels: dict[int, str] | None = None,
+    mount_id: str | None = None,
+    layered_filters: bool = False,
 ) -> None:
     """Inyecta un panel no destructivo de localizacion y color en una red vis."""
     source = html_path.read_text(encoding="utf-8")
@@ -356,74 +513,131 @@ def inject_guided_layer(
         f'<span style="background:{color}"></span>{html.escape(category)}</button>'
         for category, color in category_colors.items()
     )
+    network_topic_buttons = "".join(
+        f'<button class="guided-target" data-network-topic="{int(topic_id)}">'
+        f'<span style="background:#777"></span>{html.escape(label)}</button>'
+        for topic_id, label in (network_topic_labels or {}).items()
+    )
+    topic_filter_section = (
+        f"<h4>Temas de la red</h4>{network_topic_buttons}"
+        if network_topic_buttons else ""
+    )
+    topic_filter_markup = f"\n  {topic_filter_section}" if topic_filter_section else ""
+    filter_help = (
+        '<div class="guided-help">Suma opciones dentro de una capa y cruza las capas entre si.</div>'
+        if layered_filters else ""
+    )
+    filter_help_markup = f"\n  {filter_help}" if filter_help else ""
+    panel_position = (
+        "position:static; width:auto; max-height:none; overflow:visible; padding:0 0 10px; "
+        "background:transparent; border:0; border-bottom:1px solid #444; "
+        "border-radius:0; box-shadow:none;"
+        if mount_id else
+        f"position:fixed; top:{panel_top_px}px; right:12px; width:290px; "
+        f"max-height:calc(100vh - {panel_top_px + 12}px); overflow:auto; padding:12px; "
+        "background:rgba(18,18,18,.96); border:1px solid #666; "
+        "border-radius:6px; box-shadow:0 4px 18px #0008;"
+    )
+    mount_script = (
+        f"const guidedMount = document.getElementById({json.dumps(mount_id)});\n"
+        "  const guidedPanel = document.getElementById('guidedPanel');\n"
+        "  if (guidedMount && guidedPanel) guidedMount.insertBefore(guidedPanel, guidedMount.firstChild);"
+        if mount_id else ""
+    )
     panel = f"""
 <style>
-#guidedPanel {{ position:fixed; top:{panel_top_px}px; right:12px; z-index:2147483001;
-  width:290px; max-height:calc(100vh - {panel_top_px + 12}px); overflow:auto; padding:12px;
-  color:#eee; background:rgba(18,18,18,.96); border:1px solid #666;
-  border-radius:6px; font:12px Arial,sans-serif; box-shadow:0 4px 18px #0008; }}
+#guidedPanel {{ {panel_position} z-index:2147483001; box-sizing:border-box;
+  color:#eee; font:12px Arial,sans-serif; }}
 #guidedPanel h3 {{ margin:0 0 8px; font-size:14px; }}
 #guidedPanel h4 {{ margin:10px 0 5px; padding-top:7px; border-top:1px solid #444;
   color:#bbb; font-size:10px; text-transform:uppercase; }}
 #guidedPanel button, #guidedPanel select {{ background:#303030; color:#eee;
-  border:1px solid #666; border-radius:3px; padding:4px 6px; cursor:pointer; }}
+  border:1px solid #666; border-radius:3px; padding:4px 6px; cursor:pointer;
+  box-sizing:border-box; min-width:0; }}
 #guidedPanel button:hover {{ background:#454545; }}
 #guidedPanel button.guided-active {{ outline:2px solid #f5f5f5; background:#505050; }}
 #guidedPanel .guided-target {{ width:100%; display:flex; align-items:center;
   gap:6px; margin:3px 0; text-align:left; }}
 #guidedPanel .guided-target span {{ width:11px; height:11px; border-radius:50%; flex:none; }}
-#guidedPanel .guided-row {{ display:flex; gap:5px; margin:4px 0; }}
-#guidedPanel .guided-row button {{ flex:1; }}
+#guidedPanel .guided-row {{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; margin:4px 0; }}
+#guidedPanel .guided-row button {{ white-space:normal; overflow-wrap:anywhere; }}
+#guidedPanel .guided-row button:only-child {{ grid-column:1 / -1; }}
 #guidedPanel select, #guidedPanel input[type=range] {{ width:100%; }}
+#guidedPanel .guided-help {{ color:#aaa; line-height:1.35; margin:0 0 8px; }}
+#guidedPanel .guided-option-help {{ color:#999; font-size:10px; line-height:1.35; margin:4px 0 7px; }}
 #guidedStats {{ margin-top:7px; color:#bbb; line-height:1.35; }}
 </style>
 <div id="guidedPanel">
-  <h3>{html.escape(title)}</h3>
+  <h3>{html.escape(title)}</h3>{filter_help_markup}
   <label>Color de nodos
     <select id="guidedColorMode">
       <option value="original">Estructura original</option>
-      <option value="category">Tema rastreado</option>
+      <option value="category">Tema estructural</option>
       <option value="polarity">Polaridad</option>
-      <option value="stance">Postura discursiva</option>
+      <option value="stance">Postura hacia Isaac/gobierno</option>
     </select>
   </label>
-  <h4>Temas rastreados</h4>
+  <div class="guided-option-help">Elige cómo se colorean los puntos. Esto cambia la lectura visual, no los datos ni las conexiones.</div>{topic_filter_markup}
+  <h4>Temas estructurales</h4>
   {category_buttons}
+  <div class="guided-option-help">Pulsa uno o varios asuntos para ver únicamente los nodos cuyo vocabulario coincide con ellos.</div>
   <label>Confianza minima: <b id="guidedConfidenceValue">0.00</b></label>
   <input id="guidedConfidence" type="range" min="0" max="100" value="0">
+  <div class="guided-option-help">Súbela para exigir coincidencias más claras; bájala para incluir asociaciones más amplias.</div>
   <h4>Polaridad lexica</h4>
   <div class="guided-row">
     <button data-polarity="positiva">Positiva</button>
     <button data-polarity="negativa">Negativa</button>
     <button data-polarity="mixta">Mixta</button>
   </div>
-  <h4>Postura discursiva</h4>
+  <div class="guided-option-help">Permite aislar lenguaje favorable, desfavorable o combinado. Describe palabras usadas, no necesariamente la intención completa.</div>
+  <h4>Postura hacia Isaac/gobierno</h4>
   <div class="guided-row">
     <button data-stance="apoyo_defensa">Apoyo/defensa</button>
     <button data-stance="critica_oposicion">Crítica/oposición</button>
     <button data-stance="mixta_disputa">Mixta/disputa</button>
   </div>
+  <div class="guided-option-help">Mide la posición respecto a Isaac Montoya o el gobierno municipal mediante referencias al actor y señales de respaldo o crítica. No reutiliza la polaridad.</div>
   <div class="guided-row"><button id="guidedReset">Restaurar vista</button></div>
+  <div class="guided-option-help">Restaurar elimina todos los filtros y vuelve a mostrar la red completa.</div>
   <div id="guidedStats">Preparando capa guiada...</div>
 </div>
 <script>
 (function() {{
+  {mount_script}
   const GUIDED_META = {annotations_json};
   const CATEGORY_COLORS = {colors_json};
   const POLARITY_COLORS = {polarity_json};
   const STANCE_COLORS = {stance_json};
   const originals = {{}};
+  const LAYERED_FILTERS = {str(layered_filters).lower()};
+  const activeFilters = {{topic:new Set(), category:new Set(), polarity:new Set(), stance:new Set()}};
+  let strategicCombine = null;
+  let strategicSeedIds = new Set();
+  let strategicContextIds = new Set();
   let guidedFocus = null;
   let guidedNodes = null;
+  let guidedEdges = null;
   let guidedNetwork = null;
+  window.guidedStrategicState = {{seedIds:[], contextIds:[]}};
+  function publishStrategicState() {{
+    window.guidedStrategicState = {{
+      seedIds: Array.from(strategicSeedIds),
+      contextIds: Array.from(strategicContextIds),
+    }};
+  }}
   function confidence() {{
     return parseInt(document.getElementById('guidedConfidence').value || '0', 10) / 100;
   }}
   function resolveNetwork() {{
     guidedNetwork = (typeof network !== 'undefined') ? network : window.network;
     guidedNodes = (typeof nodes !== 'undefined') ? nodes : window.nodes;
+    guidedEdges = (typeof edges !== 'undefined') ? edges : window.edges;
     if (!guidedNodes && guidedNetwork && guidedNetwork.body && guidedNetwork.body.data) {{
       guidedNodes = guidedNetwork.body.data.nodes;
+    }}
+    if (!guidedEdges && guidedNetwork && guidedNetwork.body && guidedNetwork.body.data) {{
+      guidedEdges = guidedNetwork.body.data.edges;
     }}
     return !!(guidedNodes && guidedNetwork);
   }}
@@ -440,16 +654,18 @@ def inject_guided_layer(
         font: node.font
       }};
     }});
+    document.querySelectorAll('[data-network-topic]').forEach(btn =>
+      btn.addEventListener('click', () => toggleFilter('topic', btn.dataset.networkTopic, btn)));
     document.querySelectorAll('#guidedPanel [data-category]').forEach(btn =>
-      btn.addEventListener('click', () => locate('category', btn.dataset.category)));
+      btn.addEventListener('click', () => LAYERED_FILTERS ? toggleFilter('category', btn.dataset.category, btn) : locate('category', btn.dataset.category)));
     document.querySelectorAll('#guidedPanel [data-polarity]').forEach(btn =>
-      btn.addEventListener('click', () => locate('polarity', btn.dataset.polarity)));
+      btn.addEventListener('click', () => LAYERED_FILTERS ? toggleFilter('polarity', btn.dataset.polarity, btn) : locate('polarity', btn.dataset.polarity)));
     document.querySelectorAll('#guidedPanel [data-stance]').forEach(btn =>
-      btn.addEventListener('click', () => locate('stance', btn.dataset.stance)));
+      btn.addEventListener('click', () => LAYERED_FILTERS ? toggleFilter('stance', btn.dataset.stance, btn) : locate('stance', btn.dataset.stance)));
     document.getElementById('guidedColorMode').addEventListener('change', recolor);
     document.getElementById('guidedConfidence').addEventListener('input', function() {{
       document.getElementById('guidedConfidenceValue').textContent = confidence().toFixed(2);
-      recolor();
+      if (LAYERED_FILTERS) applyLayerFilters(); else recolor();
     }});
     document.getElementById('guidedReset').addEventListener('click', resetGuided);
     const categorized = Object.values(GUIDED_META).filter(m => (m.categories || []).length).length;
@@ -468,8 +684,87 @@ def inject_guided_layer(
     if (focus.kind === 'polarity') return meta.polarity === focus.value;
     return meta.stance === focus.value;
   }}
+  function hasActiveFilters() {{
+    return Object.values(activeFilters).some(values => values.size > 0);
+  }}
+  function matchesLayerFilters(meta) {{
+    if (!hasActiveFilters()) return true;
+    if (!meta) return false;
+    if (activeFilters.topic.size && !(meta.network_topics || []).some(value => activeFilters.topic.has(String(value)))) return false;
+    if (activeFilters.category.size && !Array.from(activeFilters.category).some(value => categoryMatch(meta, value))) return false;
+    if (strategicCombine === 'any') {{
+      const polarityMatch = activeFilters.polarity.size && activeFilters.polarity.has(meta.polarity);
+      const stanceMatch = activeFilters.stance.size && activeFilters.stance.has(meta.stance);
+      if (!polarityMatch && !stanceMatch) return false;
+    }} else {{
+      if (activeFilters.polarity.size && !activeFilters.polarity.has(meta.polarity)) return false;
+      if (activeFilters.stance.size && !activeFilters.stance.has(meta.stance)) return false;
+    }}
+    return true;
+  }}
+  function toggleFilter(kind, value, button) {{
+    if (strategicCombine) {{
+      strategicCombine = null;
+      strategicSeedIds.clear();
+      strategicContextIds.clear();
+      publishStrategicState();
+      window.dispatchEvent(new CustomEvent('guided-strategy-cleared'));
+    }}
+    const values = activeFilters[kind];
+    if (values.has(value)) values.delete(value); else values.add(value);
+    button.classList.toggle('guided-active', values.has(value));
+    if (kind !== 'topic') document.getElementById('guidedColorMode').value = kind;
+    applyLayerFilters();
+  }}
+  function buildStrategicNeighborhood() {{
+    strategicSeedIds = new Set(
+      Object.keys(GUIDED_META).filter(id => guidedNodes.get(id) && matchesLayerFilters(GUIDED_META[id]))
+    );
+    strategicContextIds = new Set(strategicSeedIds);
+    const networkEdges = guidedEdges ? guidedEdges.get() : [];
+    networkEdges.forEach(edge => {{
+      const from = String(edge.from);
+      const to = String(edge.to);
+      if (strategicSeedIds.has(from) || strategicSeedIds.has(to)) {{
+        strategicContextIds.add(from);
+        strategicContextIds.add(to);
+      }}
+    }});
+    networkEdges.forEach(edge => {{
+      if (edge.kind !== 'tema_posicion') return;
+      const from = String(edge.from);
+      const to = String(edge.to);
+      if (strategicContextIds.has(from) || strategicContextIds.has(to)) {{
+        strategicContextIds.add(from);
+        strategicContextIds.add(to);
+      }}
+    }});
+    publishStrategicState();
+  }}
+  function applyLayerFilters() {{
+    if (strategicCombine) buildStrategicNeighborhood();
+    window.guidedNodeAllowed = node => strategicCombine
+      ? strategicContextIds.has(String(node.id))
+      : matchesLayerFilters(GUIDED_META[String(node.id)]);
+    if (typeof rebuild === 'function') rebuild();
+    else guidedNodes.update(guidedNodes.get().map(node => ({{id:node.id, hidden:!window.guidedNodeAllowed(node)}})));
+    recolor();
+    const matching = Object.keys(GUIDED_META).filter(id => matchesLayerFilters(GUIDED_META[id]) && guidedNodes.get(id) && !guidedNodes.get(id).hidden);
+    const visible = guidedNodes.get().filter(node => !node.hidden);
+    guidedNetwork.unselectAll();
+    guidedNetwork.selectNodes(matching.slice(0, 1000));
+    if (strategicCombine) {{
+      document.getElementById('guidedStats').innerHTML = '<b>' + matching.length +
+        '</b> coincidencias · <b>' + Math.max(0, visible.length - matching.length) +
+        '</b> nodos de contexto · <b>' + visible.length + '</b> visibles';
+    }} else {{
+      document.getElementById('guidedStats').innerHTML = hasActiveFilters()
+        ? '<b>' + matching.length + '</b> nodos en el subconjunto activo'
+        : 'Sin filtros de capa activos';
+    }}
+  }}
   function setActiveButton(kind, value) {{
-    document.querySelectorAll('#guidedPanel button').forEach(btn => btn.classList.remove('guided-active'));
+    document.querySelectorAll('[data-network-topic], #guidedPanel button').forEach(btn => btn.classList.remove('guided-active'));
     let selector = '[data-stance="' + value + '"]';
     if (kind === 'category') selector = '[data-category="' + value + '"]';
     else if (kind === 'polarity') selector = '[data-polarity="' + value + '"]';
@@ -512,7 +807,13 @@ def inject_guided_layer(
       let size = original.size;
       let font = original.font;
       const isFocus = matchesFocus(meta, guidedFocus);
-      if (guidedFocus) {{
+      const isStrategicSeed = strategicCombine && strategicSeedIds.has(String(node.id));
+      const isStrategicContext = strategicCombine && strategicContextIds.has(String(node.id)) && !isStrategicSeed;
+      if (isStrategicSeed) {{
+        borderWidth = Math.max(Number(borderWidth || 1), 4);
+      }} else if (isStrategicContext) {{
+        color = mutedColor();
+      }} else if (guidedFocus) {{
         if (isFocus) {{
           color = focusColor(meta, guidedFocus);
           borderWidth = 5;
@@ -534,12 +835,39 @@ def inject_guided_layer(
   }}
   function resetGuided() {{
     guidedFocus = null;
-    document.querySelectorAll('#guidedPanel button').forEach(btn => btn.classList.remove('guided-active'));
+    Object.values(activeFilters).forEach(values => values.clear());
+    strategicCombine = null;
+    strategicSeedIds.clear();
+    strategicContextIds.clear();
+    publishStrategicState();
+    window.guidedNodeAllowed = null;
+    window.dispatchEvent(new CustomEvent('guided-strategy-cleared'));
+    document.querySelectorAll('[data-network-topic], #guidedPanel button').forEach(btn => btn.classList.remove('guided-active'));
     document.getElementById('guidedColorMode').value = 'original';
     document.getElementById('guidedConfidence').value = '0';
     document.getElementById('guidedConfidenceValue').textContent = '0.00';
+    if (typeof rebuild === 'function') rebuild();
     guidedNetwork.unselectAll(); recolor(); guidedNetwork.fit({{animation:true}});
   }}
+  window.guidedApplyStrategicPreset = function(preset) {{
+    if (!resolveNetwork()) return;
+    guidedFocus = null;
+    Object.values(activeFilters).forEach(values => values.clear());
+    (preset.polarity || []).forEach(value => activeFilters.polarity.add(value));
+    (preset.stance || []).forEach(value => activeFilters.stance.add(value));
+    strategicCombine = preset.combine || 'all';
+    document.querySelectorAll('[data-network-topic], #guidedPanel button').forEach(button => button.classList.remove('guided-active'));
+    document.getElementById('guidedColorMode').value = 'original';
+    activeFilters.polarity.forEach(value => {{
+      const button = document.querySelector('#guidedPanel [data-polarity="' + value + '"]');
+      if (button) button.classList.add('guided-active');
+    }});
+    activeFilters.stance.forEach(value => {{
+      const button = document.querySelector('#guidedPanel [data-stance="' + value + '"]');
+      if (button) button.classList.add('guided-active');
+    }});
+    applyLayerFilters();
+  }};
   setTimeout(initGuided, 0);
 }})();
 </script>

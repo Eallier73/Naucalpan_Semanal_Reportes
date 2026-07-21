@@ -10,6 +10,7 @@ import re
 import unicodedata
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlparse
 
 import pandas as pd
 
@@ -33,7 +34,14 @@ EMOJI_RE = re.compile(
 )
 WEEK_RE = re.compile(r"(20\d{2}_W\d{2})")
 DATE_PREFIX_RE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
-INSTITUTIONAL_HANDLES = {"gobnau", "isaacsolar", "ciudadnaucalpan"}
+INSTITUTIONAL_HANDLES = {
+    "gobnau", "isaacsolar", "isaacmontoya24", "ciudadnaucalpan",
+    "guardiamunicipalciudadnaucalpan",
+}
+MEDIA_NAME_ALIASES = {
+    "el_sol_de_mexico": "El Sol de México",
+    "milenio": "Milenio",
+}
 
 OUTPUT_COLUMNS = [
     "id", "plataforma", "tipo_registro", "usuario", "semana", "semanas_origen",
@@ -268,6 +276,31 @@ def adapt_youtube_script(row: pd.Series, path: Path) -> dict[str, Any]:
     )
 
 
+def media_name(row: pd.Series) -> str:
+    raw_name = first(row, "fuente")
+    if raw_name:
+        return MEDIA_NAME_ALIASES.get(slug(raw_name), raw_name)
+
+    raw_url = first(row, "url", "url_google")
+    hostname = urlparse(raw_url).hostname or ""
+    return hostname.removeprefix("www.") or "Medio sin identificar"
+
+
+def adapt_medio(row: pd.Series, path: Path) -> dict[str, Any]:
+    url = first(row, "url", "url_google")
+    titulo = first(row, "titulo")
+    contenido = first(row, "texto") or titulo
+    nombre_medio = media_name(row)
+    return base_record(
+        row, path, "Medios", "articulo", nombre_medio,
+        first(row, "iso_date", "fecha"), contenido,
+        url or stable_hash(nombre_medio, row.get("iso_date"), titulo, contenido),
+        url_origen=url, url_contexto=url, titulo_contexto=titulo,
+        autor_contexto=first(row, "autor"),
+        query_busqueda=first(row, "origen"),
+    )
+
+
 def adapt_radar_facebook_legacy(row: pd.Series, path: Path) -> dict[str, Any]:
     contenido = first(row, "message")
     query_type = first(row, "query_type")
@@ -372,6 +405,30 @@ def adapt_radar_recovered(
     )
 
 
+def adapt_apify_social(
+    row: pd.Series, path: Path, plataforma: str
+) -> dict[str, Any]:
+    return base_record(
+        row,
+        path,
+        plataforma,
+        first(row, "tipo_registro") or "mencion",
+        first(row, "usuario"),
+        first(row, "fecha"),
+        first(row, "texto"),
+        first(row, "id", "url"),
+        likes=integer(row.get("likes")),
+        comentarios=integer(row.get("comentarios")),
+        shares=integer(row.get("shares")),
+        vistas=integer(row.get("vistas")),
+        es_reply=first(row, "tipo_registro") == "comentario",
+        url_origen=first(row, "url"),
+        url_contexto=first(row, "url_contexto", "input_url"),
+        query_busqueda=first(row, "query_busqueda"),
+        datos_originales_json=first(row, "datos_originales_json") or raw_json(row),
+    )
+
+
 SOURCES: list[tuple[str, str, Callable[[pd.Series, Path], dict[str, Any]]]] = [
     ("Twitter comentarios", "Twitter/*/*_comentarios.csv", lambda r, p: adapt_twitter(r, p, False)),
     ("Twitter institucionales", "Twitter/*/*_post_institucionales.csv", lambda r, p: adapt_twitter(r, p, True)),
@@ -379,6 +436,17 @@ SOURCES: list[tuple[str, str, Callable[[pd.Series, Path], dict[str, Any]]]] = [
     ("Facebook posts", "Facebook/*/*_posts.csv", adapt_facebook_post),
     ("YouTube comentarios", "Youtube/*/*_comentarios.csv", adapt_youtube_comment),
     ("YouTube transcripciones", "Youtube/*/*_scripts.csv", adapt_youtube_script),
+    ("Medios", "Medios/*/*_Medios.csv", adapt_medio),
+    (
+        "Instagram",
+        "Instagram/*/*_publicaciones.csv",
+        lambda r, p: adapt_apify_social(r, p, "Instagram"),
+    ),
+    (
+        "TikTok",
+        "TikTok/*/*_publicaciones.csv",
+        lambda r, p: adapt_apify_social(r, p, "TikTok"),
+    ),
 ]
 
 

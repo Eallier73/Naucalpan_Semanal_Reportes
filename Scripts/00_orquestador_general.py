@@ -38,6 +38,15 @@ from queries_config import (
     MEDIOS_SITES,
     MEDIOS_SEARCH_TERMS,
     FACEBOOK_PAGES,
+    INSTAGRAM_PROFILE_URLS,
+    INSTAGRAM_SEARCH_QUERIES,
+    INSTAGRAM_HASHTAGS,
+    INSTAGRAM_DEFAULT_RESULTS_LIMIT,
+    INSTAGRAM_DEFAULT_SEARCH_LIMIT,
+    TIKTOK_PROFILES,
+    TIKTOK_SEARCH_QUERIES,
+    TIKTOK_HASHTAGS,
+    TIKTOK_DEFAULT_RESULTS_LIMIT,
 )
 from output_naming import build_report_tag
 from subir_ia_export import REQUIRED_PIPELINE_CODES, export_week_to_subir_ia
@@ -56,6 +65,12 @@ DEFAULT_TWITTER_QUERIES = TWITTER_SEARCH_QUERIES
 DEFAULT_FB_PAGES = FACEBOOK_PAGES
 DEFAULT_MEDIOS_SITES = MEDIOS_SITES
 DEFAULT_MEDIOS_TERMS = MEDIOS_SEARCH_TERMS
+DEFAULT_INSTAGRAM_PROFILES = INSTAGRAM_PROFILE_URLS
+DEFAULT_INSTAGRAM_QUERIES = INSTAGRAM_SEARCH_QUERIES
+DEFAULT_INSTAGRAM_HASHTAGS = INSTAGRAM_HASHTAGS
+DEFAULT_TIKTOK_PROFILES = TIKTOK_PROFILES
+DEFAULT_TIKTOK_QUERIES = TIKTOK_SEARCH_QUERIES
+DEFAULT_TIKTOK_HASHTAGS = TIKTOK_HASHTAGS
 
 
 @dataclass(frozen=True)
@@ -72,6 +87,8 @@ PIPELINES = [
     PipelineSpec("3", "medios_naucalpan", "Medios Naucalpan", "3_extractors_medios.py"),
     PipelineSpec("4", "facebook_posts", "Facebook Posts (incluye URL)", "4_extractors_facebook_posts.py"),
     PipelineSpec("5", "facebook_comentarios", "Facebook Comentarios (desde posts)", "5_extractors_facebook_comentarios.py"),
+    PipelineSpec("14", "instagram", "Instagram (Apify)", "5a_extractors_instagram.py"),
+    PipelineSpec("15", "tiktok", "TikTok (Apify)", "5b_extractors_tiktok.py"),
     PipelineSpec("6", "consolidador_datos", "Consolidador de Datos", "6_consolidador_datos.py"),
     PipelineSpec("7", "claude_nlp", "Modelado Tematico con Claude", "7_modelado_temas_claude.py"),
     PipelineSpec("8", "influencia_temas", "Analisis de Influencia de Temas", "8_influencia_temas.py"),
@@ -745,6 +762,122 @@ def build_material_ia(since: str) -> tuple[list[str], dict[str, str]]:
     return cmd, {}
 
 
+def build_instagram(
+    since: str,
+    before: str,
+    use_defaults: bool = False,
+) -> tuple[list[str], dict[str, str]]:
+    if use_defaults:
+        profiles = DEFAULT_INSTAGRAM_PROFILES
+        queries = DEFAULT_INSTAGRAM_QUERIES
+        hashtags = DEFAULT_INSTAGRAM_HASHTAGS
+        results_limit = INSTAGRAM_DEFAULT_RESULTS_LIMIT
+        search_limit = INSTAGRAM_DEFAULT_SEARCH_LIMIT
+        output_dir = str(REPO_ROOT / "Instagram")
+        apify_token = ""
+    else:
+        print("\n=== Instagram (Apify) ===")
+        profiles = prompt_list(
+            "Perfiles oficiales (handles o URLs), separados por coma",
+            DEFAULT_INSTAGRAM_PROFILES,
+            allow_blank=True,
+        )
+        queries = prompt_list(
+            "Búsquedas de descubrimiento, separadas por coma",
+            DEFAULT_INSTAGRAM_QUERIES,
+        )
+        hashtags = prompt_list(
+            "Hashtags dirigidos, separados por coma", DEFAULT_INSTAGRAM_HASHTAGS
+        )
+        results_limit = prompt_int(
+            "Máximo de resultados por entrada", INSTAGRAM_DEFAULT_RESULTS_LIMIT
+        )
+        search_limit = prompt_int(
+            "Máximo de cuentas por búsqueda", INSTAGRAM_DEFAULT_SEARCH_LIMIT
+        )
+        output_dir = prompt_text(
+            "Directorio base de salida", str(REPO_ROOT / "Instagram")
+        )
+        apify_token = prompt_secret("Apify token", "APIFY_TOKEN", required=True)
+
+    env = {}
+    if not use_defaults and apify_token != os.getenv("APIFY_TOKEN", ""):
+        env["APIFY_TOKEN"] = apify_token
+
+    cmd = [
+        sys.executable,
+        str(SCRIPTS_DIR / "5a_extractors_instagram.py"),
+        "--since", since,
+        "--before", before,
+        "--output-dir", output_dir,
+        "--results-limit", str(results_limit),
+        "--search-limit", str(search_limit),
+        "--no-prompt",
+    ]
+    for value in profiles:
+        cmd.extend(["--profile", value])
+    for value in hashtags:
+        cmd.extend(["--hashtag", value])
+    for value in queries:
+        cmd.extend(["--query", value])
+    return cmd, env
+
+
+def build_tiktok(
+    since: str,
+    before: str,
+    use_defaults: bool = False,
+) -> tuple[list[str], dict[str, str]]:
+    if use_defaults:
+        profiles = DEFAULT_TIKTOK_PROFILES
+        queries = DEFAULT_TIKTOK_QUERIES
+        hashtags = DEFAULT_TIKTOK_HASHTAGS
+        results_limit = TIKTOK_DEFAULT_RESULTS_LIMIT
+        output_dir = str(REPO_ROOT / "TikTok")
+        apify_token = ""
+    else:
+        print("\n=== TikTok (Apify) ===")
+        profiles = prompt_list(
+            "Perfiles oficiales (handles), separados por coma",
+            DEFAULT_TIKTOK_PROFILES,
+            allow_blank=True,
+        )
+        queries = prompt_list(
+            "Búsquedas de videos, separadas por coma", DEFAULT_TIKTOK_QUERIES
+        )
+        hashtags = prompt_list(
+            "Hashtags dirigidos, separados por coma", DEFAULT_TIKTOK_HASHTAGS
+        )
+        results_limit = prompt_int(
+            "Máximo de resultados por entrada", TIKTOK_DEFAULT_RESULTS_LIMIT
+        )
+        output_dir = prompt_text(
+            "Directorio base de salida", str(REPO_ROOT / "TikTok")
+        )
+        apify_token = prompt_secret("Apify token", "APIFY_TOKEN", required=True)
+
+    env = {}
+    if not use_defaults and apify_token != os.getenv("APIFY_TOKEN", ""):
+        env["APIFY_TOKEN"] = apify_token
+
+    cmd = [
+        sys.executable,
+        str(SCRIPTS_DIR / "5b_extractors_tiktok.py"),
+        "--since", since,
+        "--before", before,
+        "--output-dir", output_dir,
+        "--results-limit", str(results_limit),
+        "--no-prompt",
+    ]
+    for value in profiles:
+        cmd.extend(["--profile", value])
+    for value in hashtags:
+        cmd.extend(["--hashtag", value])
+    for value in queries:
+        cmd.extend(["--query", value])
+    return cmd, env
+
+
 def build_pipeline(spec: PipelineSpec, since: str, before: str, use_defaults: bool = False, facebook_posts_csv: str = "", is_periodico: bool = False) -> tuple[list[str], dict[str, str]]:
     if spec.key == "youtube":
         return build_youtube(since, before, use_defaults)
@@ -765,6 +898,10 @@ def build_pipeline(spec: PipelineSpec, since: str, before: str, use_defaults: bo
         return build_facebook_posts(since, before, use_defaults)
     if spec.key == "facebook_comentarios":
         return build_facebook_comentarios(since, before, use_defaults, facebook_posts_csv)
+    if spec.key == "instagram":
+        return build_instagram(since, before, use_defaults)
+    if spec.key == "tiktok":
+        return build_tiktok(since, before, use_defaults)
     if spec.key == "consolidador_datos":
         return build_consolidador_datos(since, before, use_defaults, is_periodico=is_periodico)
     if spec.key == "claude_nlp":
@@ -802,6 +939,8 @@ def _source_label_for_spec(spec: PipelineSpec) -> str | None:
         "medios_naucalpan": "Medios",
         "facebook_posts": "Facebook",
         "facebook_comentarios": "Facebook",
+        "instagram": "Instagram",
+        "tiktok": "TikTok",
         "consolidador_datos": "Datos",
         "claude_nlp": "Claude",
         "influencia_temas": "Influencia_Temas",
@@ -891,6 +1030,23 @@ def main() -> None:
                 consolidador_spec = selected.pop(index_6)
                 index_dep = next(index for index, item in enumerate(selected) if item.code == dependent_code)
                 selected.insert(index_dep, consolidador_spec)
+
+    selected_codes = {s.code for s in selected}
+    source_codes = {"1", "2", "3", "4", "5", "14", "15"}
+    if "6" in selected_codes:
+        consolidador_index = next(
+            index for index, item in enumerate(selected) if item.code == "6"
+        )
+        source_indexes = [
+            index for index, item in enumerate(selected) if item.code in source_codes
+        ]
+        if source_indexes and consolidador_index < max(source_indexes):
+            consolidador_spec = selected.pop(consolidador_index)
+            insert_at = max(
+                index for index, item in enumerate(selected)
+                if item.code in source_codes
+            ) + 1
+            selected.insert(insert_at, consolidador_spec)
 
     if any(item.code == "13" for item in selected):
         selected = [item for item in selected if item.code != "13"] + [PIPELINES_BY_CODE["13"]]

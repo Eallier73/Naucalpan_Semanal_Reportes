@@ -2,8 +2,8 @@
 """
 Consolida los .txt de cada extractor en dos archivos de análisis:
 
-  material_institucional.txt  <- posts oficiales (Twitter, Facebook, YouTube scripts)
-  material_comentarios.txt    <- reacciones ciudadanas (Twitter, Facebook, YouTube comentarios, Medios)
+  material_institucional.txt  <- posts oficiales (Twitter, Facebook, YouTube, Instagram, TikTok)
+  material_comentarios.txt    <- conversación pública (Twitter, Facebook, YouTube, Instagram, TikTok, Medios)
 
 Uso:
   python 6_consolidador_datos.py --since 2026-03-30 --before 2026-04-05
@@ -77,12 +77,18 @@ def _sources(since: str, base_dir: Path, is_periodico: bool = False) -> dict[str
                         *_candidate_paths(p_dir / "Twitter", [tag, weekly_prefix], "Twitter", "post_institucionales.txt"),
                         *_candidate_paths(p_dir / "Facebook", [tag, weekly_prefix], "Facebook", "posts.txt"),
                         *_candidate_paths(p_dir / "Youtube", [tag, weekly_prefix], "Youtube", "scripts.txt"),
+                        *_candidate_paths(p_dir / "Instagram", [tag, weekly_prefix], "Instagram", "_posts_institucionales.txt"),
+                        *_candidate_paths(p_dir / "TikTok", [tag, weekly_prefix], "TikTok", "_posts_institucionales.txt"),
                     ])
                     comentarios.extend([
                         *_candidate_paths(p_dir / "Twitter", [tag, weekly_prefix], "Twitter", "_comentarios.txt"),
                         *_candidate_paths(p_dir / "Facebook", [tag, weekly_prefix], "Facebook", "_comentarios.txt"),
                         *_candidate_paths(p_dir / "Youtube", [tag, weekly_prefix], "Youtube", "_comentarios.txt"),
                         *_candidate_paths(p_dir / "Medios", [tag, weekly_prefix], "Medios", ".txt", prefix="noticias_naucalpan_"),
+                        *_candidate_paths(p_dir / "Instagram", [tag, weekly_prefix], "Instagram", "_menciones.txt"),
+                        *_candidate_paths(p_dir / "Instagram", [tag, weekly_prefix], "Instagram", "_comentarios.txt"),
+                        *_candidate_paths(p_dir / "TikTok", [tag, weekly_prefix], "TikTok", "_menciones.txt"),
+                        *_candidate_paths(p_dir / "TikTok", [tag, weekly_prefix], "TikTok", "_comentarios.txt"),
                     ])
             return {"institucional": institucional, "comentarios": comentarios}
 
@@ -92,6 +98,8 @@ def _sources(since: str, base_dir: Path, is_periodico: bool = False) -> dict[str
         *_candidate_paths(base_dir / "Twitter", tag_variants, "Twitter", "_post_institucionales.txt"),
         *_candidate_paths(base_dir / "Facebook", tag_variants, "Facebook", "_posts.txt"),
         *_candidate_paths(base_dir / "Youtube", tag_variants, "Youtube", "_scripts.txt"),
+        *_candidate_paths(base_dir / "Instagram", tag_variants, "Instagram", "_posts_institucionales.txt"),
+        *_candidate_paths(base_dir / "TikTok", tag_variants, "TikTok", "_posts_institucionales.txt"),
     ]
 
     comentarios = [
@@ -99,6 +107,10 @@ def _sources(since: str, base_dir: Path, is_periodico: bool = False) -> dict[str
         *_candidate_paths(base_dir / "Facebook", tag_variants, "Facebook", "_comentarios.txt"),
         *_candidate_paths(base_dir / "Youtube", tag_variants, "Youtube", "_comentarios.txt"),
         *_candidate_paths(base_dir / "Medios", tag_variants, "Medios", ".txt", prefix="noticias_naucalpan_"),
+        *_candidate_paths(base_dir / "Instagram", tag_variants, "Instagram", "_menciones.txt"),
+        *_candidate_paths(base_dir / "Instagram", tag_variants, "Instagram", "_comentarios.txt"),
+        *_candidate_paths(base_dir / "TikTok", tag_variants, "TikTok", "_menciones.txt"),
+        *_candidate_paths(base_dir / "TikTok", tag_variants, "TikTok", "_comentarios.txt"),
     ]
 
     return {"institucional": institucional, "comentarios": comentarios}

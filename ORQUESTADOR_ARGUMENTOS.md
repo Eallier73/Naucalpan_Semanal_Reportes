@@ -103,6 +103,31 @@ Este documento resume, script por script, qué argumentos conviene pedir desde e
   - `--base-dir`
   - `--output-dir`
 
+## 14 Instagram (Apify)
+
+- Argumentos clave:
+  - `--since`
+  - `--before`
+  - `--profile`, `--hashtag` y `--query` repetibles
+  - `--results-limit`
+  - `--search-limit`
+  - `--output-dir`
+  - `--dry-run`
+- Credenciales: `APIFY_TOKEN` solo en ejecución real.
+- Salida: `Instagram/{semana}/` con un CSV canónico y materiales de publicaciones, menciones y comentarios incluidos.
+
+## 15 TikTok (Apify)
+
+- Argumentos clave:
+  - `--since`
+  - `--before`
+  - `--profile`, `--hashtag` y `--query` repetibles
+  - `--results-limit`
+  - `--output-dir`
+  - `--dry-run`
+- Credenciales: `APIFY_TOKEN` solo en ejecución real.
+- Salida: `TikTok/{semana}/` con un CSV canónico y materiales de publicaciones o menciones.
+
 ## 07 Modelado temático con Claude
 
 - Prompt propio previo: no.
