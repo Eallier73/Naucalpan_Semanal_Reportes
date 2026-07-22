@@ -15,11 +15,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = REPO_ROOT / "Scripts"
 
 
-def build_steps(*, sin_radar: bool = False) -> list[tuple[str, list[str]]]:
+def build_steps() -> list[tuple[str, list[str]]]:
     python = sys.executable
     steps: list[tuple[str, list[str]]] = [
         (
-            "Consolidar historico social",
+            "Consolidar historico local",
             [python, str(SCRIPTS_DIR / "11_consolidar_historico_sna.py")],
         ),
         (
@@ -78,8 +78,6 @@ def build_steps(*, sin_radar: bool = False) -> list[tuple[str, list[str]]]:
             [python, str(SCRIPTS_DIR / "19_red_posiciones_guiada.py")],
         ),
     ]
-    if sin_radar:
-        steps[0][1].append("--sin-radar")
     return steps
 
 
@@ -90,18 +88,13 @@ def render_command(command: list[str]) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--sin-radar",
-        action="store_true",
-        help="Genera el corpus solo con las fuentes del repositorio de Naucalpan",
-    )
-    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Muestra la secuencia sin ejecutar los scripts",
     )
     args = parser.parse_args()
 
-    steps = build_steps(sin_radar=args.sin_radar)
+    steps = build_steps()
     print("=" * 70, flush=True)
     print("GENERACION DEL ANALISIS SNA HISTORICO DE NAUCALPAN", flush=True)
     print(f"Pasos: {len(steps)}", flush=True)

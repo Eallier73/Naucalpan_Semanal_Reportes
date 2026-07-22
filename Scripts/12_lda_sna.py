@@ -912,7 +912,7 @@ def main() -> None:
         type=str,
         default="",
         help="Terminos a excluir del calculo de extracluster y matriz. "
-             "Separados por coma, sin acentos (ej: gobierno,mexico,cdmx).",
+             "Separados por coma, sin acentos (ej: gobierno,mexico,naucalpan).",
     )
     parser.add_argument(
         "--stop-extra",

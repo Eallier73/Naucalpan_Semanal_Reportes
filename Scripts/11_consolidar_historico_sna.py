@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Consolida todo el historico tabular descargado para el SNA de Naucalpan."""
+"""Consolida el historico tabular local para el SNA de Naucalpan."""
 
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT = REPO_ROOT / "SNA" / "Datos" / "naucalpan_datos_tabulares_consolidados.csv"
-DEFAULT_RADAR_DIR = Path("/home/emilio/Documentos/RAdAR/Datos_RAdAR/Juntos")
 SOURCE_ROOTS: list[tuple[Path, str]] = [(REPO_ROOT, "")]
 
 URL_RE = re.compile(r"(?:https?://|www\.)[^\s<>\"']+", re.IGNORECASE)
@@ -34,10 +33,6 @@ EMOJI_RE = re.compile(
 )
 WEEK_RE = re.compile(r"(20\d{2}_W\d{2})")
 DATE_PREFIX_RE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
-INSTITUTIONAL_HANDLES = {
-    "gobnau", "isaacsolar", "isaacmontoya24", "ciudadnaucalpan",
-    "guardiamunicipalciudadnaucalpan",
-}
 MEDIA_NAME_ALIASES = {
     "el_sol_de_mexico": "El Sol de México",
     "milenio": "Milenio",
@@ -117,13 +112,13 @@ def week_from_path(path: Path) -> str:
     return f"{iso.year}_W{iso.week:02d}"
 
 
-def date_or_source_week(value: Any, path: Path) -> str:
-    raw = text(value)
-    parsed = pd.to_datetime(raw, errors="coerce", utc=True)
-    if raw and not pd.isna(parsed):
-        return raw
-    match = DATE_PREFIX_RE.search(str(path))
-    return match.group(1) if match else raw
+def week_from_date_or_path(value: Any, path: Path) -> str:
+    """Usa la fecha real del registro y recurre a la ruta solo como respaldo."""
+    parsed = pd.to_datetime(text(value), errors="coerce", utc=True)
+    if not pd.isna(parsed):
+        iso = parsed.isocalendar()
+        return f"{iso.year}_W{iso.week:02d}"
+    return week_from_path(path)
 
 
 def stable_hash(*values: Any) -> str:
@@ -187,7 +182,7 @@ def base_record(
     **extra: Any,
 ) -> dict[str, Any]:
     relative = source_relative(path)
-    week = week_from_path(path)
+    week = week_from_date_or_path(fecha, path)
     clean = clean_and_extract(contenido)
     fallback_key = "|".join([plataforma, tipo_registro, usuario, fecha, contenido])
     dedup_key = f"{plataforma}:{tipo_registro}:{stable_key or hashlib.sha1(fallback_key.encode('utf-8')).hexdigest()}"
@@ -301,110 +296,6 @@ def adapt_medio(row: pd.Series, path: Path) -> dict[str, Any]:
     )
 
 
-def adapt_radar_facebook_legacy(row: pd.Series, path: Path) -> dict[str, Any]:
-    contenido = first(row, "message")
-    query_type = first(row, "query_type")
-    level = integer(row.get("level"))
-    is_comment = "comments" in query_type.lower() or level > 1
-    object_id = first(row, "object_id")
-    synthetic_url = f"radar://facebook/{object_id}" if object_id else ""
-    return base_record(
-        row, path, "Facebook", "comentario" if is_comment else "publicacion_institucional",
-        "", date_or_source_week(row.get("created_time"), path), contenido,
-        first(row, "path") or stable_hash(row.get("id"), row.get("created_time"), contenido),
-        likes=integer(row.get("like_count")), comentarios=integer(row.get("comment_count")),
-        url_origen=synthetic_url, url_contexto=synthetic_url,
-        query_busqueda=query_type, autor_contexto="RAdAR Facebook",
-    )
-
-
-def adapt_radar_facebook_actual(row: pd.Series, path: Path) -> dict[str, Any]:
-    tipo_raw = first(row, "tipo").upper()
-    is_post = tipo_raw == "POST"
-    contenido = first(row, "texto")
-    url = first(row, "url")
-    parent = first(row, "post_url_padre") or url
-    fecha = date_or_source_week(row.get("fecha"), path)
-    stable = stable_hash(tipo_raw, url, parent, fecha, contenido)
-    return base_record(
-        row, path, "Facebook", "publicacion_institucional" if is_post else "comentario",
-        "", fecha, contenido, stable,
-        comentarios=integer(row.get("num_comentarios")), url_origen=url,
-        url_contexto=parent, autor_contexto="RAdAR Facebook",
-    )
-
-
-def _radar_twitter_institutional(handle: str) -> bool:
-    return handle.lower().lstrip("@").strip() in INSTITUTIONAL_HANDLES
-
-
-def adapt_radar_twitter_legacy(row: pd.Series, path: Path) -> dict[str, Any]:
-    usuario = first(row, "Author_Handle", "Author_Name")
-    contenido = first(row, "Tweet_Content")
-    url = first(row, "Tweet_URL")
-    stable = url or first(row, "Post_ID") or stable_hash(usuario, row.get("UTC_Time"), contenido)
-    institutional = _radar_twitter_institutional(usuario)
-    return base_record(
-        row, path, "Twitter", "publicacion_institucional" if institutional else "comentario",
-        usuario, date_or_source_week(row.get("UTC_Time"), path), contenido, stable,
-        likes=integer(row.get("Like_Count")), comentarios=integer(row.get("Reply_Count")),
-        shares=integer(row.get("Repost_Count")), vistas=integer(row.get("View_Count")),
-        es_reply=boolean(row.get("Replying_to")), url_origen=url, url_contexto=url,
-        query_busqueda=first(row, "Query_Str"),
-        idioma_detectado=first(row, "Language") or "indeterminado",
-    )
-
-
-def adapt_radar_twitter_actual(row: pd.Series, path: Path) -> dict[str, Any]:
-    usuario = first(row, "author")
-    return adapt_twitter(row, path, _radar_twitter_institutional(usuario))
-
-
-def adapt_radar_youtube_simple(row: pd.Series, path: Path) -> dict[str, Any]:
-    contenido = first(row, "comment_text")
-    fecha = date_or_source_week(row.get("published_at"), path)
-    query = first(row, "query")
-    week = week_from_path(path) or "sin_semana"
-    context = f"radar://youtube/{week}/{slug(query)}"
-    stable = stable_hash(fecha, contenido.lower(), query.lower())
-    return base_record(
-        row, path, "YouTube", "comentario", "", fecha, contenido, stable,
-        url_contexto=context, query_busqueda=query,
-        autor_contexto="RAdAR YouTube sin metadata",
-    )
-
-
-def adapt_radar_youtube_full(row: pd.Series, path: Path) -> dict[str, Any]:
-    video_id = first(row, "video_id")
-    comment_id = first(row, "comment_id")
-    video_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else ""
-    comment_url = f"{video_url}&lc={comment_id}" if video_url and comment_id else comment_id
-    contenido = first(row, "comment_text")
-    return base_record(
-        row, path, "YouTube", "comentario", first(row, "author"),
-        date_or_source_week(row.get("published_at"), path), contenido,
-        comment_id or stable_hash(row.get("published_at"), contenido, row.get("query")),
-        likes=integer(row.get("like_count")), url_origen=comment_url,
-        url_contexto=video_url or f"radar://youtube/{week_from_path(path)}/sin_video",
-        query_busqueda=first(row, "query"), titulo_contexto=first(row, "video_title"),
-        autor_contexto=first(row, "channel_title"),
-    )
-
-
-def adapt_radar_recovered(
-    row: pd.Series, path: Path, plataforma: str, line_number: int
-) -> dict[str, Any]:
-    contenido = first(row, "texto_recuperado")
-    week = week_from_path(path) or "sin_semana"
-    context = f"radar://recuperado/{plataforma.lower()}/{week}/{path.stem}"
-    return base_record(
-        row, path, plataforma, "comentario", "", date_or_source_week("", path),
-        contenido, stable_hash(path.name, line_number, contenido),
-        url_contexto=context, query_busqueda="recuperacion_sin_encabezado",
-        autor_contexto="RAdAR recuperacion parcial",
-    )
-
-
 def adapt_apify_social(
     row: pd.Series, path: Path, plataforma: str
 ) -> dict[str, Any]:
@@ -447,6 +338,41 @@ SOURCES: list[tuple[str, str, Callable[[pd.Series, Path], dict[str, Any]]]] = [
         "TikTok/*/*_publicaciones.csv",
         lambda r, p: adapt_apify_social(r, p, "TikTok"),
     ),
+    (
+        "Periodico Twitter comentarios",
+        "Periodico/**/Twitter/*/*_comentarios.csv",
+        lambda r, p: adapt_twitter(r, p, False),
+    ),
+    (
+        "Periodico Twitter institucionales",
+        "Periodico/**/Twitter/*/*_post_institucionales.csv",
+        lambda r, p: adapt_twitter(r, p, True),
+    ),
+    (
+        "Periodico Facebook comentarios",
+        "Periodico/**/Facebook/*/*_comentarios.csv",
+        adapt_facebook_comment,
+    ),
+    (
+        "Periodico Facebook posts",
+        "Periodico/**/Facebook/*/*_posts.csv",
+        adapt_facebook_post,
+    ),
+    (
+        "Periodico YouTube comentarios",
+        "Periodico/**/Youtube/*/*_comentarios.csv",
+        adapt_youtube_comment,
+    ),
+    (
+        "Periodico YouTube transcripciones",
+        "Periodico/**/Youtube/*/*_scripts.csv",
+        adapt_youtube_script,
+    ),
+    (
+        "Periodico Medios",
+        "Periodico/**/Medios/*/*_Medios.csv",
+        adapt_medio,
+    ),
 ]
 
 
@@ -457,116 +383,32 @@ def read_csv(path: Path) -> pd.DataFrame:
         return pd.read_csv(path, encoding="latin-1", low_memory=False, on_bad_lines="skip")
 
 
-def read_radar_csv(path: Path, plataforma: str) -> tuple[pd.DataFrame, str]:
-    try:
-        frame = read_csv(path)
-    except Exception:
-        if plataforma == "Facebook":
-            try:
-                frame = pd.read_csv(
-                    path, encoding="utf-8-sig", sep=";", engine="python",
-                    on_bad_lines="skip",
-                )
-            except Exception:
-                frame = pd.DataFrame()
-        else:
-            frame = pd.DataFrame()
-
-    if plataforma == "Facebook" and len(frame.columns) == 1:
-        try:
-            frame = pd.read_csv(
-                path, encoding="utf-8-sig", sep=";", engine="python",
-                on_bad_lines="skip",
-            )
-        except Exception:
-            frame = pd.DataFrame()
-
-    if plataforma == "Facebook" and "message" in frame.columns:
-        return frame, "facebook_legacy"
-    if plataforma == "Facebook" and "texto" in frame.columns:
-        return frame, "facebook_actual"
-    if plataforma == "Twitter" and "Tweet_Content" in frame.columns:
-        return frame, "twitter_legacy"
-    if plataforma == "Twitter" and "text" in frame.columns:
-        return frame, "twitter_actual"
-    if plataforma == "YouTube" and "video_id" in frame.columns:
-        return frame, "youtube_full"
-    if plataforma == "YouTube" and "comment_text" in frame.columns:
-        return frame, "youtube_simple"
-
-    lines = [
-        line.lstrip("\ufeff").strip()
-        for line in path.read_text(encoding="utf-8-sig", errors="ignore").splitlines()
-        if line.strip()
-    ]
-    return pd.DataFrame({"texto_recuperado": lines}), "recuperado_sin_encabezado"
-
-
-def consolidate_radar(
-    radar_dir: Path,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    records: list[dict[str, Any]] = []
-    inventory: list[dict[str, Any]] = []
-    adapters: dict[str, Callable[[pd.Series, Path], dict[str, Any]]] = {
-        "facebook_legacy": adapt_radar_facebook_legacy,
-        "facebook_actual": adapt_radar_facebook_actual,
-        "twitter_legacy": adapt_radar_twitter_legacy,
-        "twitter_actual": adapt_radar_twitter_actual,
-        "youtube_full": adapt_radar_youtube_full,
-        "youtube_simple": adapt_radar_youtube_simple,
-    }
-
-    for plataforma, suffix in (
-        ("Facebook", "*_facebook.csv"),
-        ("Twitter", "*_twitter.csv"),
-        ("YouTube", "*_youtube.csv"),
-    ):
-        for path in sorted(radar_dir.rglob(suffix)):
-            frame, schema = read_radar_csv(path, plataforma)
-            useful = 0
-            if schema == "recuperado_sin_encabezado":
-                for line_number, (_, row) in enumerate(frame.iterrows(), 1):
-                    record = adapt_radar_recovered(row, path, plataforma, line_number)
-                    if text(record.get("texto_original")):
-                        records.append(record)
-                        useful += 1
-            else:
-                adapter = adapters[schema]
-                for _, row in frame.iterrows():
-                    record = adapter(row, path)
-                    if text(record.get("texto_original")):
-                        records.append(record)
-                        useful += 1
-            inventory.append({
-                "familia": f"RAdAR {schema}",
-                "archivo": str(source_relative(path)),
-                "filas": len(frame),
-                "filas_utiles": useful,
-            })
-    return records, inventory
-
-
-def consolidate(radar_dir: Path | None = None) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+def consolidate() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
     records: list[dict[str, Any]] = []
     inventory: list[dict[str, Any]] = []
     for family, pattern, adapter in SOURCES:
-        for path in sorted(REPO_ROOT.glob(pattern)):
+        paths = sorted(set(REPO_ROOT.glob(pattern)))
+        if paths:
+            print(f"[FUENTE] {family}: {len(paths)} archivo(s)", flush=True)
+        for index, path in enumerate(paths, 1):
             frame = read_csv(path)
             inventory.append({"familia": family, "archivo": str(path.relative_to(REPO_ROOT)), "filas": len(frame)})
+            print(
+                f"  [{index}/{len(paths)}] {path.relative_to(REPO_ROOT)} · {len(frame)} filas",
+                flush=True,
+            )
             for _, row in frame.iterrows():
                 record = adapter(row, path)
                 if text(record.get("texto_original")):
                     records.append(record)
 
-    if radar_dir and radar_dir.exists():
-        SOURCE_ROOTS.append((radar_dir, "RAdAR/Juntos"))
-        radar_records, radar_inventory = consolidate_radar(radar_dir)
-        records.extend(radar_records)
-        inventory.extend(radar_inventory)
-
     if not records:
         return pd.DataFrame(columns=OUTPUT_COLUMNS), inventory
 
+    print(
+        f"[CONSOLIDAR] {len(records)} registros útiles; deduplicando descargas repetidas...",
+        flush=True,
+    )
     raw = pd.DataFrame(records)
     consolidated: list[dict[str, Any]] = []
     for _, group in raw.groupby("clave_deduplicacion", sort=False, dropna=False):
@@ -579,6 +421,7 @@ def consolidate(radar_dir: Path | None = None) -> tuple[pd.DataFrame, list[dict[
         selected["id"] = hashlib.sha1(str(selected["clave_deduplicacion"]).encode("utf-8")).hexdigest()[:20]
         consolidated.append(selected)
 
+    print(f"[CONSOLIDAR] {len(consolidated)} registros únicos; ordenando salida...", flush=True)
     output = pd.DataFrame(consolidated)
     for column in OUTPUT_COLUMNS:
         if column not in output:
@@ -591,28 +434,17 @@ def consolidate(radar_dir: Path | None = None) -> tuple[pd.DataFrame, list[dict[
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--radar-dir", type=Path, default=DEFAULT_RADAR_DIR)
-    parser.add_argument(
-        "--sin-radar", action="store_true",
-        help="Consolida solo las fuentes del repo de Naucalpan",
-    )
     args = parser.parse_args()
 
-    radar_dir = None if args.sin_radar else args.radar_dir
-    if radar_dir and not radar_dir.exists():
-        print(f"[AVISO] No existe RAdAR: {radar_dir}; se continua sin esa fuente")
-        radar_dir = None
-    output, inventory = consolidate(radar_dir=radar_dir)
+    print(f"Raíz local: {REPO_ROOT}", flush=True)
+    print("Fuentes externas: desactivadas", flush=True)
+    output, inventory = consolidate()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     output.to_csv(args.output, index=False, encoding="utf-8")
 
     print(f"Archivo: {args.output}")
     print(f"Archivos fuente: {len(inventory)}")
     print(f"Filas fuente: {sum(item['filas'] for item in inventory)}")
-    if radar_dir:
-        radar_items = [item for item in inventory if item["familia"].startswith("RAdAR ")]
-        print(f"Archivos RAdAR: {len(radar_items)}")
-        print(f"Filas utiles RAdAR: {sum(item.get('filas_utiles', 0) for item in radar_items)}")
     print(f"Filas consolidadas: {len(output)}")
     print("Por plataforma:")
     for platform, count in output["plataforma"].value_counts().items():

@@ -79,7 +79,7 @@ Todo lo relacionado con quién es la Guardia Municipal, qué tiene y qué puede 
 
 - **CI:** Menciones a cada unidad especializada: Policía de Género, Grupo K9, Grupo Montado, Prevención del Delito. ¿Con qué frecuencia se comunica cada una? ¿En qué contexto? ¿Con qué tono?
 - **PC:** ¿Cuáles unidades aparecen espontáneamente en la conversación ciudadana? ¿Cuáles generan reconocimiento? ¿Cuáles son invisibles? ¿Hay asociación con experiencias concretas?
-- **HC:** Visibilidad probablemente muy desigual. K9 y Montado son visualmente llamativos; Policía de Género hace trabajo profundo pero menos fotogénico. La campaña necesita decidir si profundiza en las unidades que ya se conocen o si invierte en posicionar las que trabajan bajo el radar.
+- **HC:** Visibilidad probablemente muy desigual. K9 y Montado son visualmente llamativos; Policía de Género hace trabajo profundo pero menos fotogénico. La campaña necesita decidir si profundiza en las unidades que ya se conocen o si invierte en posicionar las que hoy tienen poca visibilidad.
 
 ---
 
@@ -197,7 +197,7 @@ Todo lo relacionado con quién es la Guardia Municipal, qué tiene y qué puede 
 
 **2.4 Coordinación interinstitucional** — Estrategia Oriente, operativos conjuntos con otras corporaciones, coordinación con los tres órdenes de gobierno. Hay que ver si la ciudadanía percibe estas acciones como fortaleza o si ni siquiera las registra.
 
-**2.5 Especialización funcional** — menciones a unidades específicas: Policía de Género, Grupo K9, Grupo Montado, Prevención del Delito. Interesa saber cuáles tienen visibilidad pública y cuáles operan bajo el radar.
+**2.5 Especialización funcional** — menciones a unidades específicas: Policía de Género, Grupo K9, Grupo Montado, Prevención del Delito. Interesa saber cuáles tienen visibilidad pública y cuáles son poco conocidas.
 
 ------
 

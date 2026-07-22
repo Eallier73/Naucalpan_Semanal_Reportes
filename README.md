@@ -4,7 +4,7 @@ Repo base para descargar datos semanales de redes y medios en Naucalpan, y dejar
 
 ## Alcance
 
-Este repo parte de `Datos_Radar`, pero quedó limpiado para uso operativo:
+Este repositorio está preparado para la operación semanal de Naucalpan:
 
 - Sin datos históricos descargados.
 - Sin la carpeta `Datos_Redes_Sets_Enteros_55_Semanas`.
@@ -113,7 +113,7 @@ El detalle script por script de argumentos y prompts quedó en `ORQUESTADOR_ARGU
 - Instagram (pipeline 14) y TikTok (pipeline 15) usan `APIFY_TOKEN`; sus consultas y hashtags están centralizados en `Scripts/queries_config.py`.
 - Los perfiles oficiales de Instagram y TikTok permanecen vacíos hasta confirmarlos. Mientras tanto, ambos funcionan por búsquedas y hashtags dirigidos a Isaac Montoya y al Gobierno de Naucalpan.
 - Ambos admiten `--dry-run`: muestran la entrada prevista sin llamar a Apify, sin requerir token y sin crear archivos.
-- El botón `EJECUTAR SNA` corre el análisis histórico completo, incluidas las redes guiadas, la postura hacia Isaac Montoya/gobierno municipal y el filtro de calidad temática.
+- El botón `EJECUTAR SNA` corre el análisis histórico completo usando exclusivamente las fuentes locales —incluido `Periodico/`—, las redes guiadas, la postura hacia Isaac Montoya/gobierno municipal y el filtro de calidad temática.
 - La carpeta `Influencia_Temas/{semana}/` contiene analisis correlacional de temas sobre polaridad con reportes tecnicos (CSVs) y ejecutivos (KPIs, hallazgos, alertas).
 - El pipeline 8 (Analisis de Influencia) requiere que se ejecute primero el pipeline 6 (Consolidador) para generar `material_institucional.txt` e `material_comentarios.txt`.
 - La carpeta `Temas_Guiados/{semana}/` contiene clasificacion por tema, top de palabras y reporte textual del analisis guiado.

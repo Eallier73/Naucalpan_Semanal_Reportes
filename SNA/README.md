@@ -5,11 +5,10 @@ Incluye Twitter, Facebook, YouTube y Medios. En las notas periodisticas, el
 campo `fuente` se conserva como cuenta bajo la identidad
 `Medios::<nombre del medio>` (por ejemplo, `Medios::Milenio`).
 
-El consolidador integra las descargas del repo y, cuando existe, el historico
-social de `/home/emilio/Documentos/RAdAR/Datos_RAdAR/Juntos`. Los formatos sin
-cuenta se conservan para temas, pero no participan en la red de cuentas. Para
-generar solo con las fuentes del repo se puede usar `--sin-radar`; otra copia
-del historico se indica con `--radar-dir RUTA`.
+El consolidador usa exclusivamente las descargas locales del repositorio:
+combina las carpetas semanales de cada red con los tramos guardados en
+`Periodico/`. Los formatos sin cuenta se conservan para temas, pero no
+participan en la red de cuentas. Todo se resuelve dentro de este repositorio.
 
 ## Preparacion
 

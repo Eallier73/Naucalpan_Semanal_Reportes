@@ -34,7 +34,7 @@ LABEL_RULES: list[tuple[str, set[str], int]] = [
     ),
     (
         "Quejas y solicitudes sobre servicios públicos",
-        {"agua", "basura", "alumbrado", "calle", "bache", "drenaje", "comapa", "recoleccion", "vialidad", "servicio", "colonia", "avenida"},
+        {"agua", "basura", "alumbrado", "calle", "bache", "drenaje", "oapas", "recoleccion", "vialidad", "servicio", "colonia", "avenida"},
         2,
     ),
     (

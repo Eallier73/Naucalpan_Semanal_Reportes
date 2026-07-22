@@ -83,7 +83,7 @@ DEFAULT_GLOBAL_SINCE, DEFAULT_GLOBAL_BEFORE = iso_week_to_range(DEFAULT_GLOBAL_I
 PERIOD_FOLDER_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2})_al_(\d{4}-\d{2}-\d{2})$")
 
 SNA_STEPS = [
-    ("Consolidar histórico SNA", "11_consolidar_historico_sna.py", []),
+    ("Consolidar histórico local", "11_consolidar_historico_sna.py", []),
     ("LDA SNA", "12_lda_sna.py", ["--k-min", "25", "--k-max", "35", "--selection-mode", "coherence"]),
     ("Evaluar calidad temática", "sna_topic_quality.py", []),
     ("Subclusters Louvain", "12b_subclusters_louvain.py", ["--resolution", "1.4", "--min-sub-size", "3"]),

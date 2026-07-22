@@ -16,10 +16,10 @@ from typing import Any, Iterable
 import pandas as pd
 
 
-DEFAULT_DICT_DIR = Path(
-    "/home/emilio/Documentos/RAdAR/Diccionarios_NLP/Diccionarios_Finales"
+DEFAULT_DICT_DIR = Path(__file__).resolve().parent / "diccionarios"
+DEFAULT_TOPIC_DICTIONARY = (
+    DEFAULT_DICT_DIR / "diccionario_temas_estructurales_naucalpan.xlsx"
 )
-DEFAULT_TOPIC_DICTIONARY = DEFAULT_DICT_DIR / "diccionario_pmi_confianza_v10.xlsx"
 DEFAULT_POSITIVE_DICTIONARY = DEFAULT_DICT_DIR / "diccionario_palabras_positivas.txt"
 DEFAULT_NEGATIVE_DICTIONARY = DEFAULT_DICT_DIR / "diccionario_palabras_negativas.txt"
 
@@ -247,8 +247,6 @@ def load_lexicons(
     category_index: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
     for row, keys in zip(topics.itertuples(index=False), topic_keys, strict=True):
         category = str(row.Categoria).strip()
-        if normalize(category) == "americo":
-            continue
         entry = {
             "name": category,
             "confidence": float(row.Confianza),
@@ -281,8 +279,7 @@ def load_lexicons(
         for key, entries in category_index.items()
     }
     category_names = sorted(
-        {name for name in topics["Categoria"].astype(str).unique() if normalize(name) != "americo"}
-        | set(LOCAL_STRUCTURAL_TERMS)
+        set(topics["Categoria"].astype(str).unique()) | set(LOCAL_STRUCTURAL_TERMS)
     )
     fallback = [
         "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",

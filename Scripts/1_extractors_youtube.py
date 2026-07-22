@@ -6,7 +6,7 @@ Este script genera un dataset de comentarios encontrados por búsquedas
 (queries) para un rango de fechas -> CSV + TXT limpio.
 
 Ejemplo:
-python3 Youtube_Extractor_CDMX.py \
+python3 Scripts/1_extractors_youtube.py \
   --since 2026-02-27 --before 2026-03-06
 """
 
