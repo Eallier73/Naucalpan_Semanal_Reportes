@@ -1724,7 +1724,15 @@ def main() -> int:
     parser.add_argument("--diccionario-temas", type=Path, default=DEFAULT_TOPIC_DICTIONARY)
     parser.add_argument("--diccionario-positivo", type=Path, default=DEFAULT_POSITIVE_DICTIONARY)
     parser.add_argument("--diccionario-negativo", type=Path, default=DEFAULT_NEGATIVE_DICTIONARY)
+    parser.add_argument(
+        "--output-filename",
+        default="red_naucalpan_historico_guiada.html",
+        help="Nombre del HTML dentro de red_guiada/.",
+    )
+    parser.add_argument("--scope-label", default="histórico")
     args = parser.parse_args()
+    if Path(args.output_filename).name != args.output_filename:
+        parser.error("--output-filename debe ser solo un nombre de archivo")
 
     sna_dir = args.clusters_dir
 
@@ -1751,7 +1759,7 @@ def main() -> int:
             "Ejecuta primero 12c_diagnostico_umbrales.py o especifica los tres umbrales."
         )
 
-    print("[red_completa] corpus historico de Naucalpan")
+    print(f"[red_completa] corpus {args.scope_label} de Naucalpan")
     print(
         "[red_completa] umbrales: "
         f"intra_sub={args.umbral_intra_sub}, "
@@ -1895,7 +1903,7 @@ def main() -> int:
                 for _, r in top10.iterrows():
                     top_by_sub.append([str(r["palabra"]), contexto])
 
-    html_path = out_dir / "red_naucalpan_historico_guiada.html"
+    html_path = out_dir / args.output_filename
     render_pyvis(
             G,
             html_path,

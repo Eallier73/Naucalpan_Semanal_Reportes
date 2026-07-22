@@ -1704,7 +1704,15 @@ def main() -> int:
     parser.add_argument("--umbral-intra-sub", type=float)
     parser.add_argument("--umbral-intra-cluster", type=float)
     parser.add_argument("--umbral-extra", type=float)
+    parser.add_argument(
+        "--output-filename",
+        default="red_naucalpan_historico.html",
+        help="Nombre del HTML dentro de red_completa/.",
+    )
+    parser.add_argument("--scope-label", default="histórico")
     args = parser.parse_args()
+    if Path(args.output_filename).name != args.output_filename:
+        parser.error("--output-filename debe ser solo un nombre de archivo")
 
     sna_dir = args.clusters_dir
 
@@ -1731,7 +1739,7 @@ def main() -> int:
             "Ejecuta primero 12c_diagnostico_umbrales.py o especifica los tres umbrales."
         )
 
-    print("[red_completa] corpus historico de Naucalpan")
+    print(f"[red_completa] corpus {args.scope_label} de Naucalpan")
     print(
         "[red_completa] umbrales: "
         f"intra_sub={args.umbral_intra_sub}, "
@@ -1875,7 +1883,7 @@ def main() -> int:
                 for _, r in top10.iterrows():
                     top_by_sub.append([str(r["palabra"]), contexto])
 
-    html_path = out_dir / "red_naucalpan_historico.html"
+    html_path = out_dir / args.output_filename
     render_pyvis(
             G,
             html_path,

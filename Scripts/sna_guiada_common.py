@@ -25,6 +25,7 @@ DEFAULT_NEGATIVE_DICTIONARY = DEFAULT_DICT_DIR / "diccionario_palabras_negativas
 
 CATEGORY_COLORS = {
     "Agua": "#1f77b4",
+    "Alcalde": "#c62828",
     "Alumbrado": "#f2c744",
     "Gobierno municipal": "#9467bd",
     "Basura": "#2ca02c",
@@ -61,8 +62,8 @@ STANCE_TARGET_WORDS = {
 }
 LOCAL_STRUCTURAL_TERMS = {
     "Gobierno municipal": [
-        "isaac", "montoya", "alcalde", "presidente", "municipal", "gobnau",
-        "ciudadnaucalpan", "ayuntamiento", "naucalpan", "administracion",
+        "presidente", "municipal", "gobnau", "ciudadnaucalpan",
+        "ayuntamiento", "naucalpan", "administracion",
     ],
 }
 STANCE_SUPPORT_WORDS = {

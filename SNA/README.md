@@ -18,8 +18,18 @@ sin cuenta se conservan para temas, pero no participan en la red de cuentas.
 
 ## Ejecucion
 
-Desde la GUI del orquestador se usa el botón `EJECUTAR SNA` para lanzar toda la
-secuencia, incluidas las redes guiadas. El mismo flujo se puede ejecutar con:
+La GUI ofrece tres ejecuciones completas, incluidas las tres redes guiadas:
+
+- `EJECUTAR SNA MATERIAL HISTÓRICO` usa todo el corpus y escribe en
+  `SNA/Resultados/historico/`.
+- `EJECUTAR SNA DOS SEMANAS` detecta las dos semanas ISO más recientes y
+  escribe sin sobrescribir el histórico en
+  `SNA/Resultados/ultimas_2_semanas/`.
+- `EJECUTAR SNA ÚLTIMA SEMANA` usa únicamente la semana ISO más reciente y
+  escribe sin sobrescribir los otros alcances en
+  `SNA/Resultados/ultima_semana/`.
+
+El flujo histórico también se puede ejecutar con:
 
 ```bash
 .venv/bin/python Scripts/20_generar_analisis_sna.py
@@ -42,14 +52,42 @@ La secuencia manual equivalente es:
 .venv/bin/python Scripts/19_red_posiciones_guiada.py
 ```
 
-Los resultados se escriben en `SNA/Resultados/historico/`. El diagnostico
+## Salidas separadas
+
+Cada alcance conserva su propio CSV, directorio de resultados y bitácora. Los
+HTML finales de dos semanas son:
+
+- `red_naucalpan_ultimas_2_semanas_guiada.html`
+- `red_naucalpan_cuentas_ultimas_2_semanas_guiada.html`
+- `red_naucalpan_posiciones_ultimas_2_semanas_guiada.html`
+
+Los HTML finales de la última semana son:
+
+- `red_naucalpan_ultima_semana_guiada.html`
+- `red_naucalpan_cuentas_ultima_semana_guiada.html`
+- `red_naucalpan_posiciones_ultima_semana_guiada.html`
+
+El CSV reciente se puede regenerar por separado con:
+
+```bash
+.venv/bin/python Scripts/11_consolidar_historico_sna.py --last-weeks 2
+```
+
+Para consolidar únicamente la semana más reciente:
+
+```bash
+.venv/bin/python Scripts/11_consolidar_historico_sna.py --last-weeks 1
+```
+
+El diagnostico
 calcula umbrales por capa a partir del percentil 75 del corpus; la red completa
 los utiliza automaticamente, salvo que se indiquen valores por CLI.
 
-La GUI conserva la salida completa de la última corrida en
-`SNA/Resultados/historico/ultima_ejecucion.log`. Solo muestra el aviso de éxito
-cuando existen los tres HTML finales en `clusters/red_guiada/`; si una etapa
-falla, muestra un aviso de error y la bitácora conserva el motivo.
+La GUI conserva bitácoras independientes en `ultima_ejecucion.log` para el
+histórico, `ultima_ejecucion_ultimas_2_semanas.log` para dos semanas y
+`ultima_ejecucion_ultima_semana.log` para la última semana.
+Solo muestra el aviso de éxito cuando existen los tres HTML finales del alcance
+seleccionado; si una etapa falla, la bitácora correspondiente conserva el motivo.
 
 La configuración compara entre 25 y 35 temas y selecciona el modelo con mejor
 coherencia c_v. Después califica cada tema; los agrupamientos de calidad baja se

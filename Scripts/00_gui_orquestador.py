@@ -82,28 +82,151 @@ build_report_tag = ORQUESTADOR.build_report_tag
 DEFAULT_GLOBAL_SINCE, DEFAULT_GLOBAL_BEFORE = iso_week_to_range(DEFAULT_GLOBAL_ISO_WEEK)
 PERIOD_FOLDER_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2})_al_(\d{4}-\d{2}-\d{2})$")
 
-SNA_STEPS = [
-    ("Consolidar histórico semanal local", "11_consolidar_historico_sna.py", []),
-    ("LDA SNA", "12_lda_sna.py", ["--k-min", "25", "--k-max", "35", "--selection-mode", "coherence"]),
-    ("Evaluar calidad temática", "sna_topic_quality.py", []),
-    ("Subclusters Louvain", "12b_subclusters_louvain.py", ["--resolution", "1.4", "--min-sub-size", "3"]),
-    ("Diagnóstico de umbrales", "12c_diagnostico_umbrales.py", []),
-    ("Red completa", "12c_red_completa.py", []),
-    ("Cuentas por clusters", "18_cuentas_clusters.py", []),
-    ("Red de cuentas", "12d_red_cuentas.py", []),
-    ("Red de posiciones discursivas", "19_red_posiciones_discursivas.py", []),
-    ("Red completa guiada", "12c_red_completa_guiada.py", []),
-    ("Red de cuentas guiada", "12d_red_cuentas_guiada.py", []),
-    ("Red de posiciones guiada", "19_red_posiciones_guiada.py", []),
-]
+SNA_DATA_DIR = REPO_ROOT / "SNA" / "Datos"
+SNA_HISTORICAL_CSV = SNA_DATA_DIR / "naucalpan_datos_tabulares_consolidados.csv"
+SNA_LAST_TWO_WEEKS_CSV = SNA_DATA_DIR / "naucalpan_datos_tabulares_ultimas_2_semanas.csv"
+SNA_LAST_WEEK_CSV = SNA_DATA_DIR / "naucalpan_datos_tabulares_ultima_semana.csv"
+SNA_RESULTS_ROOT = REPO_ROOT / "SNA" / "Resultados"
 
-SNA_RESULTS_DIR = REPO_ROOT / "SNA" / "Resultados" / "historico"
-SNA_RUN_LOG = SNA_RESULTS_DIR / "ultima_ejecucion.log"
-SNA_FINAL_OUTPUTS = [
-    SNA_RESULTS_DIR / "clusters" / "red_guiada" / "red_naucalpan_historico_guiada.html",
-    SNA_RESULTS_DIR / "clusters" / "red_guiada" / "red_naucalpan_cuentas_guiada.html",
-    SNA_RESULTS_DIR / "clusters" / "red_guiada" / "red_naucalpan_posiciones_guiada.html",
-]
+
+def build_sna_run(scope: str) -> dict[str, object]:
+    if scope == "historico":
+        label = "material histórico"
+        input_csv = SNA_HISTORICAL_CSV
+        results_dir = SNA_RESULTS_ROOT / "historico"
+        consolidate_args = ["--output", str(input_csv)]
+        scope_short = "histórico"
+        network_scope = "Naucalpan histórico"
+        accounts_scope = "histórica"
+        corpus_label = "histórico consolidado de Naucalpan"
+        complete_name = "red_naucalpan_historico.html"
+        accounts_name = "red_naucalpan_cuentas.html"
+        positions_name = "red_naucalpan_posiciones.html"
+        guided_complete_name = "red_naucalpan_historico_guiada.html"
+        guided_accounts_name = "red_naucalpan_cuentas_guiada.html"
+        guided_positions_name = "red_naucalpan_posiciones_guiada.html"
+        log_name = "ultima_ejecucion.log"
+    elif scope == "ultimas_2_semanas":
+        label = "últimas 2 semanas"
+        input_csv = SNA_LAST_TWO_WEEKS_CSV
+        results_dir = SNA_RESULTS_ROOT / "ultimas_2_semanas"
+        consolidate_args = ["--last-weeks", "2", "--output", str(input_csv)]
+        scope_short = "de las últimas 2 semanas"
+        network_scope = "Naucalpan · últimas 2 semanas"
+        accounts_scope = "de las últimas 2 semanas"
+        corpus_label = "últimas 2 semanas disponibles de Naucalpan"
+        complete_name = "red_naucalpan_ultimas_2_semanas.html"
+        accounts_name = "red_naucalpan_cuentas_ultimas_2_semanas.html"
+        positions_name = "red_naucalpan_posiciones_ultimas_2_semanas.html"
+        guided_complete_name = "red_naucalpan_ultimas_2_semanas_guiada.html"
+        guided_accounts_name = "red_naucalpan_cuentas_ultimas_2_semanas_guiada.html"
+        guided_positions_name = "red_naucalpan_posiciones_ultimas_2_semanas_guiada.html"
+        log_name = "ultima_ejecucion_ultimas_2_semanas.log"
+    elif scope == "ultima_semana":
+        label = "última semana"
+        input_csv = SNA_LAST_WEEK_CSV
+        results_dir = SNA_RESULTS_ROOT / "ultima_semana"
+        consolidate_args = ["--last-weeks", "1", "--output", str(input_csv)]
+        scope_short = "de la última semana disponible"
+        network_scope = "Naucalpan · última semana"
+        accounts_scope = "de la última semana disponible"
+        corpus_label = "última semana disponible de Naucalpan"
+        complete_name = "red_naucalpan_ultima_semana.html"
+        accounts_name = "red_naucalpan_cuentas_ultima_semana.html"
+        positions_name = "red_naucalpan_posiciones_ultima_semana.html"
+        guided_complete_name = "red_naucalpan_ultima_semana_guiada.html"
+        guided_accounts_name = "red_naucalpan_cuentas_ultima_semana_guiada.html"
+        guided_positions_name = "red_naucalpan_posiciones_ultima_semana_guiada.html"
+        log_name = "ultima_ejecucion_ultima_semana.log"
+    else:
+        raise ValueError(f"Alcance SNA desconocido: {scope}")
+
+    clusters_dir = results_dir / "clusters"
+    accounts_dir = results_dir / "cuentas_clusters"
+    steps = [
+        ("Consolidar material local", "11_consolidar_historico_sna.py", consolidate_args),
+        (
+            "LDA SNA",
+            "12_lda_sna.py",
+            [
+                "--input-csv", str(input_csv),
+                "--output-dir", str(clusters_dir),
+                "--k-min", "25", "--k-max", "35",
+                "--selection-mode", "coherence",
+            ],
+        ),
+        ("Evaluar calidad temática", "sna_topic_quality.py", ["--clusters-dir", str(clusters_dir)]),
+        (
+            "Subclusters Louvain",
+            "12b_subclusters_louvain.py",
+            ["--clusters-dir", str(clusters_dir), "--resolution", "1.4", "--min-sub-size", "3"],
+        ),
+        ("Diagnóstico de umbrales", "12c_diagnostico_umbrales.py", ["--clusters-dir", str(clusters_dir)]),
+        (
+            "Red completa",
+            "12c_red_completa.py",
+            ["--clusters-dir", str(clusters_dir), "--output-filename", complete_name, "--scope-label", scope_short],
+        ),
+        (
+            "Cuentas por clusters",
+            "18_cuentas_clusters.py",
+            ["--clusters-dir", str(clusters_dir), "--output-dir", str(accounts_dir)],
+        ),
+        (
+            "Red de cuentas",
+            "12d_red_cuentas.py",
+            [
+                "--base-dir", str(results_dir), "--output-filename", accounts_name,
+                "--scope-label", accounts_scope, "--corpus-label", corpus_label,
+            ],
+        ),
+        (
+            "Red de posiciones discursivas",
+            "19_red_posiciones_discursivas.py",
+            [
+                "--base-dir", str(results_dir), "--input-csv", str(input_csv),
+                "--output-filename", positions_name, "--scope-label", network_scope,
+                "--corpus-label", corpus_label,
+            ],
+        ),
+        (
+            "Red completa guiada",
+            "12c_red_completa_guiada.py",
+            ["--clusters-dir", str(clusters_dir), "--output-filename", guided_complete_name, "--scope-label", scope_short],
+        ),
+        (
+            "Red de cuentas guiada",
+            "12d_red_cuentas_guiada.py",
+            [
+                "--base-dir", str(results_dir), "--output-filename", guided_accounts_name,
+                "--scope-label", accounts_scope, "--corpus-label", corpus_label,
+            ],
+        ),
+        (
+            "Red de posiciones guiada",
+            "19_red_posiciones_guiada.py",
+            [
+                "--base-dir", str(results_dir), "--input-csv", str(input_csv),
+                "--output-filename", guided_positions_name, "--scope-label", network_scope,
+                "--corpus-label", corpus_label, "--words-per-position", "35",
+            ],
+        ),
+    ]
+    guided_dir = clusters_dir / "red_guiada"
+    final_outputs = [
+        guided_dir / guided_complete_name,
+        guided_dir / guided_accounts_name,
+        guided_dir / guided_positions_name,
+    ]
+    return {
+        "scope": scope,
+        "label": label,
+        "input_csv": input_csv,
+        "results_dir": results_dir,
+        "run_log": results_dir / log_name,
+        "steps": steps,
+        "final_outputs": final_outputs,
+    }
 
 
 def parse_date_range(since: str, before: str) -> tuple[str, str]:
@@ -330,25 +453,58 @@ class OrquestadorGUI:
             variable=self.continue_error_var,
         ).pack(side=tk.LEFT, padx=10)
 
-        sna_frame = ttk.LabelFrame(main_frame, text="SNA Histórico", padding="8")
+        sna_frame = ttk.LabelFrame(main_frame, text="Análisis SNA", padding="8")
         sna_frame.pack(fill=tk.X, pady=5)
 
         ttk.Label(
             sna_frame,
             text=(
-                "Ejecuta la cadena SNA completa con las descargas semanales locales "
-                "(Periodico excluido)"
+                "Elige el alcance del análisis completo. Cada opción conserva sus "
+                "propios datos, resultados y bitácora (Periodico excluido)."
             ),
-        ).grid(row=0, column=0, sticky=tk.W, padx=5)
+        ).grid(row=0, column=0, columnspan=2, sticky=tk.W, padx=5)
+
+        self.sna_history_button = ttk.Button(
+            sna_frame,
+            text="EJECUTAR SNA MATERIAL HISTÓRICO",
+            command=lambda: self.start_sna_execution("historico"),
+        )
+        self.sna_history_button.grid(row=1, column=0, sticky=tk.EW, padx=5, pady=(7, 3))
+
+        self.sna_recent_button = ttk.Button(
+            sna_frame,
+            text="EJECUTAR SNA DOS SEMANAS",
+            command=lambda: self.start_sna_execution("ultimas_2_semanas"),
+        )
+        self.sna_recent_button.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=(7, 3))
+
+        self.sna_last_week_button = ttk.Button(
+            sna_frame,
+            text="EJECUTAR SNA ÚLTIMA SEMANA",
+            command=lambda: self.start_sna_execution("ultima_semana"),
+        )
+        self.sna_last_week_button.grid(
+            row=2, column=0, columnspan=2, sticky=tk.EW, padx=5, pady=3
+        )
+        sna_frame.columnconfigure(0, weight=1)
+        sna_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            sna_frame,
+            text=(
+                "Histórico: SNA/Resultados/historico/ · Dos semanas: "
+                "SNA/Resultados/ultimas_2_semanas/ · Última semana: "
+                "SNA/Resultados/ultima_semana/"
+            ),
+            foreground="gray",
+            font=("Helvetica", 8),
+        ).grid(row=3, column=0, columnspan=2, sticky=tk.W, padx=5)
 
         control_frame = ttk.Frame(main_frame, padding="10")
         control_frame.pack(fill=tk.X)
 
         self.play_button = ttk.Button(control_frame, text="▶ PLAY / EJECUTAR", command=self.start_execution)
         self.play_button.pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
-
-        self.sna_button = ttk.Button(control_frame, text="🧠 EJECUTAR SNA", command=self.start_sna_execution)
-        self.sna_button.pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
 
         self.stop_button = ttk.Button(control_frame, text="⏹ DETENER", command=self.stop_execution, state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
@@ -639,6 +795,9 @@ class OrquestadorGUI:
             return
 
         self.play_button.config(state=tk.DISABLED)
+        self.sna_history_button.config(state=tk.DISABLED)
+        self.sna_recent_button.config(state=tk.DISABLED)
+        self.sna_last_week_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
         self.root.update_idletasks()
         self.stop_requested = False
@@ -655,24 +814,27 @@ class OrquestadorGUI:
             return self.venv_python
         return sys.executable
 
-    def start_sna_execution(self):
+    def start_sna_execution(self, scope: str):
         if self.running_process is not None:
             messagebox.showwarning("En ejecución", "Ya hay un proceso en ejecución.")
             return
 
-        steps = list(SNA_STEPS)
+        run = build_sna_run(scope)
+        steps = run["steps"]
 
         self.clear_log()
-        self.log("🧠 Iniciando ejecución SNA histórica...")
+        self.log(f"🧠 Iniciando ejecución SNA: {run['label']}...")
         self.log("Etapas: " + ", ".join(label for label, _, _ in steps))
 
         self.play_button.config(state=tk.DISABLED)
-        self.sna_button.config(state=tk.DISABLED)
+        self.sna_history_button.config(state=tk.DISABLED)
+        self.sna_recent_button.config(state=tk.DISABLED)
+        self.sna_last_week_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
         self.root.update_idletasks()
         self.stop_requested = False
 
-        thread = threading.Thread(target=self.run_sna_pipelines, args=(steps,), daemon=True)
+        thread = threading.Thread(target=self.run_sna_pipelines, args=(run,), daemon=True)
         thread.start()
 
     def stop_execution(self):
@@ -817,12 +979,16 @@ class OrquestadorGUI:
         finally:
             self.root.after(0, self.finish_ui)
 
-    def run_sna_pipelines(self, steps):
+    def run_sna_pipelines(self, run):
         python_exec = self.build_python_exec()
+        steps = run["steps"]
+        results_dir = Path(run["results_dir"])
+        run_log = Path(run["run_log"])
+        final_outputs = [Path(path) for path in run["final_outputs"]]
         had_error = False
         success = False
-        SNA_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-        log_handle = open(SNA_RUN_LOG, "w", encoding="utf-8", buffering=1)
+        results_dir.mkdir(parents=True, exist_ok=True)
+        log_handle = open(run_log, "w", encoding="utf-8", buffering=1)
 
         def sna_log(message: str) -> None:
             self.log(message)
@@ -831,7 +997,7 @@ class OrquestadorGUI:
         try:
             sna_log(f"Inicio: {datetime.now().isoformat(timespec='seconds')}")
             sna_log(f"Intérprete: {python_exec}")
-            sna_log("Alcance: fuentes semanales locales; Periodico/ excluido")
+            sna_log(f"Alcance: {run['label']}; Periodico/ excluido")
             for label, script_name, args in steps:
                 if self.stop_requested:
                     had_error = True
@@ -888,7 +1054,7 @@ class OrquestadorGUI:
                         heartbeat_stop.set()
 
             if not had_error and not self.stop_requested:
-                missing_outputs = [path for path in SNA_FINAL_OUTPUTS if not path.exists()]
+                missing_outputs = [path for path in final_outputs if not path.exists()]
                 if missing_outputs:
                     had_error = True
                     sna_log("❌ Las etapas terminaron, pero faltan resultados finales:")
@@ -897,17 +1063,17 @@ class OrquestadorGUI:
                 else:
                     success = True
                     sna_log("📁 Resultados SNA generados:")
-                    for path in SNA_FINAL_OUTPUTS:
+                    for path in final_outputs:
                         sna_log(f"   - {path}")
 
             if success:
                 sna_log("\n🏁 SNA finalizado correctamente.")
             elif not self.stop_requested:
                 sna_log("\n🏁 SNA incompleto: no se generaron los tres HTML finales.")
-            sna_log(f"Bitácora: {SNA_RUN_LOG}")
+            sna_log(f"Bitácora: {run_log}")
         finally:
             log_handle.close()
-            self.root.after(0, self.finish_sna_ui, success)
+            self.root.after(0, self.finish_sna_ui, success, run)
 
     def run_periodico(self, prepared_template, since, before, special_folder):
         parent_path = Path(special_folder)
@@ -1175,16 +1341,20 @@ class OrquestadorGUI:
 
     def finish_ui(self):
         self.play_button.config(state=tk.NORMAL)
-        self.sna_button.config(state=tk.NORMAL)
+        self.sna_history_button.config(state=tk.NORMAL)
+        self.sna_recent_button.config(state=tk.NORMAL)
+        self.sna_last_week_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
         self.running_process = None
         if not self.stop_requested:
             self.trigger_final_alarm()
             messagebox.showinfo("Finalizado", "La ejecución de los pipelines ha concluido.")
 
-    def finish_sna_ui(self, success: bool):
+    def finish_sna_ui(self, success: bool, run):
         self.play_button.config(state=tk.NORMAL)
-        self.sna_button.config(state=tk.NORMAL)
+        self.sna_history_button.config(state=tk.NORMAL)
+        self.sna_recent_button.config(state=tk.NORMAL)
+        self.sna_last_week_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
         self.running_process = None
         if self.stop_requested:
@@ -1193,13 +1363,13 @@ class OrquestadorGUI:
             self.trigger_final_alarm()
             messagebox.showinfo(
                 "SNA finalizado",
-                "Se generaron las tres redes guiadas en SNA/Resultados/historico/clusters/red_guiada/.",
+                f"Se generó el análisis de {run['label']} en:\n{run['results_dir']}",
             )
         else:
             messagebox.showerror(
                 "SNA incompleto",
                 "La cadena se detuvo antes de generar los resultados finales. "
-                "Revisa SNA/Resultados/historico/ultima_ejecucion.log.",
+                f"Revisa la bitácora:\n{run['run_log']}",
             )
 
 
