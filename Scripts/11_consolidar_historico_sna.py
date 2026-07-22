@@ -338,41 +338,6 @@ SOURCES: list[tuple[str, str, Callable[[pd.Series, Path], dict[str, Any]]]] = [
         "TikTok/*/*_publicaciones.csv",
         lambda r, p: adapt_apify_social(r, p, "TikTok"),
     ),
-    (
-        "Periodico Twitter comentarios",
-        "Periodico/**/Twitter/*/*_comentarios.csv",
-        lambda r, p: adapt_twitter(r, p, False),
-    ),
-    (
-        "Periodico Twitter institucionales",
-        "Periodico/**/Twitter/*/*_post_institucionales.csv",
-        lambda r, p: adapt_twitter(r, p, True),
-    ),
-    (
-        "Periodico Facebook comentarios",
-        "Periodico/**/Facebook/*/*_comentarios.csv",
-        adapt_facebook_comment,
-    ),
-    (
-        "Periodico Facebook posts",
-        "Periodico/**/Facebook/*/*_posts.csv",
-        adapt_facebook_post,
-    ),
-    (
-        "Periodico YouTube comentarios",
-        "Periodico/**/Youtube/*/*_comentarios.csv",
-        adapt_youtube_comment,
-    ),
-    (
-        "Periodico YouTube transcripciones",
-        "Periodico/**/Youtube/*/*_scripts.csv",
-        adapt_youtube_script,
-    ),
-    (
-        "Periodico Medios",
-        "Periodico/**/Medios/*/*_Medios.csv",
-        adapt_medio,
-    ),
 ]
 
 
@@ -438,6 +403,7 @@ def main() -> int:
 
     print(f"Raíz local: {REPO_ROOT}", flush=True)
     print("Fuentes externas: desactivadas", flush=True)
+    print("Periodico/: excluido del corpus SNA", flush=True)
     output, inventory = consolidate()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     output.to_csv(args.output, index=False, encoding="utf-8")

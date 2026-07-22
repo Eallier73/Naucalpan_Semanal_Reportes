@@ -47,3 +47,6 @@ state/x_state.local.json
 .vscode/
 
 Reportes/
+
+SNA/Datos/**
+SNA/Resultados/**

@@ -5,10 +5,9 @@ Incluye Twitter, Facebook, YouTube y Medios. En las notas periodisticas, el
 campo `fuente` se conserva como cuenta bajo la identidad
 `Medios::<nombre del medio>` (por ejemplo, `Medios::Milenio`).
 
-El consolidador usa exclusivamente las descargas locales del repositorio:
-combina las carpetas semanales de cada red con los tramos guardados en
-`Periodico/`. Los formatos sin cuenta se conservan para temas, pero no
-participan en la red de cuentas. Todo se resuelve dentro de este repositorio.
+El consolidador usa exclusivamente las descargas semanales locales del
+repositorio. La carpeta `Periodico/` queda fuera del corpus SNA. Los formatos
+sin cuenta se conservan para temas, pero no participan en la red de cuentas.
 
 ## Preparacion
 
@@ -46,6 +45,11 @@ La secuencia manual equivalente es:
 Los resultados se escriben en `SNA/Resultados/historico/`. El diagnostico
 calcula umbrales por capa a partir del percentil 75 del corpus; la red completa
 los utiliza automaticamente, salvo que se indiquen valores por CLI.
+
+La GUI conserva la salida completa de la última corrida en
+`SNA/Resultados/historico/ultima_ejecucion.log`. Solo muestra el aviso de éxito
+cuando existen los tres HTML finales en `clusters/red_guiada/`; si una etapa
+falla, muestra un aviso de error y la bitácora conserva el motivo.
 
 La configuración compara entre 25 y 35 temas y selecciona el modelo con mejor
 coherencia c_v. Después califica cada tema; los agrupamientos de calidad baja se

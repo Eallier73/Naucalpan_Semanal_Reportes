@@ -83,7 +83,7 @@ DEFAULT_GLOBAL_SINCE, DEFAULT_GLOBAL_BEFORE = iso_week_to_range(DEFAULT_GLOBAL_I
 PERIOD_FOLDER_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2})_al_(\d{4}-\d{2}-\d{2})$")
 
 SNA_STEPS = [
-    ("Consolidar histórico local", "11_consolidar_historico_sna.py", []),
+    ("Consolidar histórico semanal local", "11_consolidar_historico_sna.py", []),
     ("LDA SNA", "12_lda_sna.py", ["--k-min", "25", "--k-max", "35", "--selection-mode", "coherence"]),
     ("Evaluar calidad temática", "sna_topic_quality.py", []),
     ("Subclusters Louvain", "12b_subclusters_louvain.py", ["--resolution", "1.4", "--min-sub-size", "3"]),
@@ -95,6 +95,14 @@ SNA_STEPS = [
     ("Red completa guiada", "12c_red_completa_guiada.py", []),
     ("Red de cuentas guiada", "12d_red_cuentas_guiada.py", []),
     ("Red de posiciones guiada", "19_red_posiciones_guiada.py", []),
+]
+
+SNA_RESULTS_DIR = REPO_ROOT / "SNA" / "Resultados" / "historico"
+SNA_RUN_LOG = SNA_RESULTS_DIR / "ultima_ejecucion.log"
+SNA_FINAL_OUTPUTS = [
+    SNA_RESULTS_DIR / "clusters" / "red_guiada" / "red_naucalpan_historico_guiada.html",
+    SNA_RESULTS_DIR / "clusters" / "red_guiada" / "red_naucalpan_cuentas_guiada.html",
+    SNA_RESULTS_DIR / "clusters" / "red_guiada" / "red_naucalpan_posiciones_guiada.html",
 ]
 
 
@@ -327,7 +335,10 @@ class OrquestadorGUI:
 
         ttk.Label(
             sna_frame,
-            text="Ejecuta la cadena SNA completa, incluidas las tres redes guiadas",
+            text=(
+                "Ejecuta la cadena SNA completa con las descargas semanales locales "
+                "(Periodico excluido)"
+            ),
         ).grid(row=0, column=0, sticky=tk.W, padx=5)
 
         control_frame = ttk.Frame(main_frame, padding="10")
@@ -809,16 +820,26 @@ class OrquestadorGUI:
     def run_sna_pipelines(self, steps):
         python_exec = self.build_python_exec()
         had_error = False
+        success = False
+        SNA_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        log_handle = open(SNA_RUN_LOG, "w", encoding="utf-8", buffering=1)
+
+        def sna_log(message: str) -> None:
+            self.log(message)
+            log_handle.write(message + "\n")
 
         try:
+            sna_log(f"Inicio: {datetime.now().isoformat(timespec='seconds')}")
+            sna_log(f"Intérprete: {python_exec}")
+            sna_log("Alcance: fuentes semanales locales; Periodico/ excluido")
             for label, script_name, args in steps:
                 if self.stop_requested:
                     had_error = True
                     break
 
                 cmd = [python_exec, str(SCRIPTS_DIR / script_name), *args]
-                self.log(f"\n--- Ejecutando SNA: {label} ---")
-                self.log(f"Comando: {render_command(cmd)}")
+                sna_log(f"\n--- Ejecutando SNA: {label} ---")
+                sna_log(f"Comando: {render_command(cmd)}")
 
                 heartbeat_stop = None
                 try:
@@ -839,27 +860,27 @@ class OrquestadorGUI:
                     assert self.running_process.stdout is not None
                     for line in self.running_process.stdout:
                         last_output_at["value"] = monotonic()
-                        self.log(line.rstrip())
+                        sna_log(line.rstrip())
 
                     self.running_process.wait()
                     return_code = self.running_process.returncode
 
                     if return_code == 0:
-                        self.log(f"✅ {label} finalizado con éxito.")
+                        sna_log(f"✅ {label} finalizado con éxito.")
                         self.root.after(0, self.trigger_stage_alarm)
                     else:
                         had_error = True
                         if self.stop_requested:
-                            self.log("⏹ Proceso SNA detenido por el usuario.")
+                            sna_log("⏹ Proceso SNA detenido por el usuario.")
                             break
-                        self.log(f"❌ Error en {label} (Código {return_code})")
+                        sna_log(f"❌ Error en {label} (Código {return_code})")
                         if not self.continue_error_var.get():
-                            self.log("Abortando ejecución SNA.")
+                            sna_log("Abortando ejecución SNA.")
                             break
 
                 except Exception as exc:
                     had_error = True
-                    self.log(f"💥 Error inesperado en {label}: {exc}")
+                    sna_log(f"💥 Error inesperado en {label}: {exc}")
                     if not self.continue_error_var.get():
                         break
                 finally:
@@ -867,11 +888,26 @@ class OrquestadorGUI:
                         heartbeat_stop.set()
 
             if not had_error and not self.stop_requested:
-                self.log("📁 Resultados SNA disponibles en: SNA/Resultados/historico")
+                missing_outputs = [path for path in SNA_FINAL_OUTPUTS if not path.exists()]
+                if missing_outputs:
+                    had_error = True
+                    sna_log("❌ Las etapas terminaron, pero faltan resultados finales:")
+                    for path in missing_outputs:
+                        sna_log(f"   - {path}")
+                else:
+                    success = True
+                    sna_log("📁 Resultados SNA generados:")
+                    for path in SNA_FINAL_OUTPUTS:
+                        sna_log(f"   - {path}")
 
-            self.log("\n🏁 Proceso SNA terminado.")
+            if success:
+                sna_log("\n🏁 SNA finalizado correctamente.")
+            elif not self.stop_requested:
+                sna_log("\n🏁 SNA incompleto: no se generaron los tres HTML finales.")
+            sna_log(f"Bitácora: {SNA_RUN_LOG}")
         finally:
-            self.root.after(0, self.finish_ui)
+            log_handle.close()
+            self.root.after(0, self.finish_sna_ui, success)
 
     def run_periodico(self, prepared_template, since, before, special_folder):
         parent_path = Path(special_folder)
@@ -1145,6 +1181,26 @@ class OrquestadorGUI:
         if not self.stop_requested:
             self.trigger_final_alarm()
             messagebox.showinfo("Finalizado", "La ejecución de los pipelines ha concluido.")
+
+    def finish_sna_ui(self, success: bool):
+        self.play_button.config(state=tk.NORMAL)
+        self.sna_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)
+        self.running_process = None
+        if self.stop_requested:
+            return
+        if success:
+            self.trigger_final_alarm()
+            messagebox.showinfo(
+                "SNA finalizado",
+                "Se generaron las tres redes guiadas en SNA/Resultados/historico/clusters/red_guiada/.",
+            )
+        else:
+            messagebox.showerror(
+                "SNA incompleto",
+                "La cadena se detuvo antes de generar los resultados finales. "
+                "Revisa SNA/Resultados/historico/ultima_ejecucion.log.",
+            )
 
 
 def main():
