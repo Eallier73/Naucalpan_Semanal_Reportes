@@ -1114,6 +1114,15 @@ def build_html(
   #polarityGuide span:nth-child(1) {{ color:#63d36f; text-align:left; }}
   #polarityGuide span:nth-child(2) {{ color:#f2c744; text-align:center; }}
   #polarityGuide span:nth-child(3) {{ color:#ff6666; text-align:right; }}
+  #governmentGuide {{
+    position:fixed; left:calc(320px - 1cm + 18px); right:calc(360px - 1cm + 18px);
+    top:58px; z-index:8; pointer-events:none; color:#fff; text-align:center;
+    font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:.06em;
+    text-shadow:0 1px 3px #000, 0 0 5px #000;
+  }}
+  #governmentGuide[hidden] {{ display:none; }}
+  #governmentGuide .mayor-label {{ color:#ff6666; }}
+  #governmentGuide .government-label {{ color:#b99adf; }}
 </style>
 </head>
 <body>
@@ -1154,8 +1163,9 @@ def build_html(
     <h2>Acomodos</h2>
     <div class="layout-actions">
       <button id="polarityLayout">Positivos · mixtos · negativos</button>
+      <button id="governmentLayout">Alcalde y gobierno al centro</button>
     </div>
-    <div class="tool-help">Agrupa los nodos positivos a la izquierda y los negativos a la derecha. Los mixtos quedan al centro, más cerca del lado que indique su balance léxico.</div>
+    <div class="tool-help">Polaridad separa positivos y negativos, con los mixtos según su balance. Alcalde/gobierno crea un núcleo central y distribuye alrededor los temas con sus posiciones, cuentas y palabras.</div>
   </div>
   <div class="grp">
     <h2>Temas de la red</h2>
@@ -1192,6 +1202,10 @@ def build_html(
   <span>Positivos</span>
   <span>Mixtos</span>
   <span>Negativos</span>
+</div>
+<div id="governmentGuide" hidden>
+  Núcleo: <span class="mayor-label">Alcalde</span> y
+  <span class="government-label">Gobierno municipal</span> · temas alrededor
 </div>
 <script>
 const RAW_NODES = {json.dumps(nodes, ensure_ascii=False)};
@@ -1396,6 +1410,7 @@ document.getElementById('fitNetwork').addEventListener('click', () => {{
   network.fit({{animation:{{duration:400}}}});
 }});
 document.getElementById('polarityLayout').addEventListener('click', applyPolarityLayout);
+document.getElementById('governmentLayout').addEventListener('click', applyGovernmentLayout);
 document.getElementById('search').addEventListener('keydown', e => {{
   if (e.key !== 'Enter') return;
   const q = e.target.value.trim().toLowerCase();
@@ -1420,6 +1435,9 @@ const BASE_CENTER = BASE_IDS.reduce((center, id) => ({{x:center.x + BASE_POSITIO
 function clearActiveLayout() {{
   document.querySelectorAll('.layout-actions button').forEach(button => button.classList.remove('layout-active'));
   document.getElementById('polarityGuide').hidden = true;
+  document.getElementById('governmentGuide').hidden = true;
+  const colorMode = document.getElementById('guidedColorMode');
+  if (colorMode) colorMode.dispatchEvent(new Event('change'));
 }}
 function layoutJitter(id) {{
   let hash = 0;
@@ -1463,6 +1481,128 @@ function applyPolarityLayout() {{
   requestAnimationFrame(() => network.fit({{
     nodes: visibleIds,
     animation: {{duration:550, easingFunction:'easeInOutQuad'}}
+  }}));
+}}
+function nodeTopics(node) {{
+  const topics = Array.isArray(node.network_topics) ? node.network_topics : [];
+  if (topics.length) return topics.map(Number).filter(Number.isFinite);
+  const fallback = Number(node.tema);
+  return Number.isFinite(fallback) ? [fallback] : [];
+}}
+function nearestBaseTopic(node, topicAnchors) {{
+  const candidates = nodeTopics(node).filter(topic => topicAnchors.has(topic));
+  if (!candidates.length) return null;
+  const base = BASE_POSITIONS[node.id] || BASE_CENTER;
+  return candidates.reduce((best, topic) => {{
+    const topicBase = BASE_POSITIONS[`T${{String(topic).padStart(2, '0')}}`] || BASE_CENTER;
+    const distance = Math.hypot(base.x - topicBase.x, base.y - topicBase.y);
+    return !best || distance < best.distance ? {{topic, distance}} : best;
+  }}, null).topic;
+}}
+function orbitPosition(anchor, index, total, baseRadius, perRing, ringGap, phase=0) {{
+  const ring = Math.floor(index / perRing);
+  const slot = index % perRing;
+  const count = Math.min(perRing, total - ring * perRing);
+  const angle = phase + (2 * Math.PI * slot / Math.max(1, count)) + ring * 0.27;
+  const radius = baseRadius + ring * ringGap;
+  return {{x:anchor.x + Math.cos(angle) * radius, y:anchor.y + Math.sin(angle) * radius}};
+}}
+function applyGovernmentLayout() {{
+  clearActiveLayout();
+  document.getElementById('governmentLayout').classList.add('layout-active');
+  document.getElementById('governmentGuide').hidden = false;
+  network.stopSimulation();
+  network.setOptions({{physics: {{enabled:false}}}});
+
+  const allNodes = nodes.get();
+  const topicNodes = allNodes
+    .filter(node => node.kind === 'tema')
+    .sort((a, b) => Number(a.tema) - Number(b.tema));
+  const topicAnchors = new Map();
+  const topicRingRadius = 1500;
+  topicNodes.forEach((node, index) => {{
+    const angle = -Math.PI / 2 + (2 * Math.PI * index / Math.max(1, topicNodes.length));
+    topicAnchors.set(Number(node.tema), {{
+      x:BASE_CENTER.x + Math.cos(angle) * topicRingRadius,
+      y:BASE_CENTER.y + Math.sin(angle) * topicRingRadius
+    }});
+  }});
+
+  const centerNodes = allNodes
+    .filter(node => node.kind !== 'tema' &&
+      (node.guided_categories || []).some(category =>
+        category === 'Alcalde' || category === 'Gobierno municipal'))
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  const centerIds = new Set(centerNodes.map(node => String(node.id)));
+  const satellites = new Map();
+  topicAnchors.forEach((_anchor, topic) => satellites.set(topic, {{posicion:[], cuenta:[], palabra:[], other:[]}}));
+
+  allNodes.forEach(node => {{
+    if (node.kind === 'tema' || centerIds.has(String(node.id))) return;
+    const topic = nearestBaseTopic(node, topicAnchors);
+    if (topic === null) return;
+    const groups = satellites.get(topic);
+    const kind = Object.hasOwn(groups, node.kind) ? node.kind : 'other';
+    groups[kind].push(node);
+  }});
+
+  const visibleIds = [];
+  topicNodes.forEach(node => {{
+    const anchor = topicAnchors.get(Number(node.tema));
+    network.moveNode(node.id, anchor.x, anchor.y);
+    if (!node.hidden) visibleIds.push(node.id);
+  }});
+  topicAnchors.forEach((anchor, topic) => {{
+    const groups = satellites.get(topic);
+    const specs = {{
+      posicion:{{radius:105, perRing:10, gap:34, phase:-Math.PI/2}},
+      cuenta:{{radius:205, perRing:22, gap:32, phase:0.18}},
+      palabra:{{radius:315, perRing:30, gap:30, phase:Math.PI}},
+      other:{{radius:405, perRing:34, gap:28, phase:0}}
+    }};
+    Object.entries(groups).forEach(([kind, group]) => {{
+      const spec = specs[kind];
+      group.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      group.forEach((node, index) => {{
+        const point = orbitPosition(anchor, index, group.length, spec.radius, spec.perRing, spec.gap, spec.phase);
+        network.moveNode(node.id, point.x, point.y);
+        if (!node.hidden) visibleIds.push(node.id);
+      }});
+    }});
+  }});
+
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  centerNodes.forEach((node, index) => {{
+    const radius = index ? 28 + Math.sqrt(index) * 19 : 0;
+    const angle = index * goldenAngle;
+    network.moveNode(
+      node.id,
+      BASE_CENTER.x + Math.cos(angle) * radius,
+      BASE_CENTER.y + Math.sin(angle) * radius
+    );
+    if (!node.hidden) visibleIds.push(node.id);
+  }});
+
+  const colorMode = document.getElementById('guidedColorMode');
+  if (colorMode) {{
+    colorMode.value = 'original';
+    colorMode.dispatchEvent(new Event('change'));
+  }}
+  nodes.update(centerNodes.map(node => {{
+    const categories = node.guided_categories || [];
+    const both = categories.includes('Alcalde') && categories.includes('Gobierno municipal');
+    return {{
+      id:node.id,
+      color:{{
+        background:categories.includes('Alcalde') ? '#c62828' : '#9467bd',
+        border:both ? '#ffd166' : '#ffffff'
+      }},
+      borderWidth:both ? 5 : 3
+    }};
+  }}));
+  requestAnimationFrame(() => network.fit({{
+    nodes: visibleIds,
+    animation: {{duration:650, easingFunction:'easeInOutQuad'}}
   }}));
 }}
 function applySeparation(value) {{
@@ -1654,6 +1794,15 @@ def main() -> None:
         annotation = annotations.get(str(node["id"]), {})
         node["polarity"] = str(annotation.get("polarity", "neutral"))
         node["polarity_score"] = float(annotation.get("polarity_score", 0.0) or 0.0)
+        node["primary_category"] = str(annotation.get("primary_category", ""))
+        node["guided_categories"] = [
+            str(category.get("name", ""))
+            for category in annotation.get("categories", [])
+            if category.get("name")
+        ]
+        node["network_topics"] = [
+            int(topic) for topic in annotation.get("network_topics", [])
+        ]
 
     html_out = build_html(nodes, edges, meta, topic_info, base, args.scope_label)
     html_path.write_text(html_out, encoding="utf-8")
