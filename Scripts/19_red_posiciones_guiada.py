@@ -1100,6 +1100,20 @@ def build_html(
   #strategicBar [data-strategy="consolidation"].strategy-active {{ background:#176b42; }}
   #strategyHelp {{ flex:1 1 250px; color:#aaa; line-height:1.3; }}
   #stats {{ margin-left:auto; color:#ddd; white-space:nowrap; }}
+  .layout-actions {{ display:grid; grid-template-columns:1fr; gap:5px; }}
+  .layout-actions button {{ width:100%; }}
+  .layout-actions button.layout-active {{ outline:2px solid #fff; background:#4c4c4c; }}
+  #polarityGuide {{
+    position:fixed; left:calc(320px - 1cm + 18px); right:calc(360px - 1cm + 18px);
+    top:58px; z-index:8; display:grid; grid-template-columns:1fr 1fr 1fr;
+    align-items:center; pointer-events:none; color:#fff; font-size:11px;
+    font-weight:bold; text-transform:uppercase; letter-spacing:.06em;
+    text-shadow:0 1px 3px #000, 0 0 5px #000;
+  }}
+  #polarityGuide[hidden] {{ display:none; }}
+  #polarityGuide span:nth-child(1) {{ color:#63d36f; text-align:left; }}
+  #polarityGuide span:nth-child(2) {{ color:#f2c744; text-align:center; }}
+  #polarityGuide span:nth-child(3) {{ color:#ff6666; text-align:right; }}
 </style>
 </head>
 <body>
@@ -1137,6 +1151,13 @@ def build_html(
     <div class="tool-help">Separación aleja los grupos sin cambiar sus relaciones. Reorganizar activa el movimiento, Detener lo congela y Encajar centra toda la red.</div>
   </div>
   <div class="grp">
+    <h2>Acomodos</h2>
+    <div class="layout-actions">
+      <button id="polarityLayout">Positivos · mixtos · negativos</button>
+    </div>
+    <div class="tool-help">Agrupa los nodos positivos a la izquierda y los negativos a la derecha. Los mixtos quedan al centro, más cerca del lado que indique su balance léxico.</div>
+  </div>
+  <div class="grp">
     <h2>Temas de la red</h2>
     <div class="muted">Se muestran los temas más confiables según el orden elegido. Los agrupamientos débiles se ocultan inicialmente para reducir ruido, pero nunca se eliminan.</div>
     <label><input type="checkbox" id="showLowQuality"> mostrar temas de baja calidad</label>
@@ -1166,6 +1187,11 @@ def build_html(
   </div>
   <span id="strategyHelp">Elige un ámbito. Los nodos con color cumplen el criterio; los grises muestran sus conexiones inmediatas como contexto.</span>
   <span id="stats"></span>
+</div>
+<div id="polarityGuide" hidden>
+  <span>Positivos</span>
+  <span>Mixtos</span>
+  <span>Negativos</span>
 </div>
 <script>
 const RAW_NODES = {json.dumps(nodes, ensure_ascii=False)};
@@ -1358,6 +1384,7 @@ document.getElementById('spring').addEventListener('input', e => {{
   applySeparation(next);
 }});
 document.getElementById('reset').addEventListener('click', () => {{
+  clearActiveLayout();
   network.setOptions({{physics: {{enabled:true, stabilization: {{enabled:false}}}}}});
   network.startSimulation();
 }});
@@ -1368,6 +1395,7 @@ document.getElementById('stopPhysics').addEventListener('click', () => {{
 document.getElementById('fitNetwork').addEventListener('click', () => {{
   network.fit({{animation:{{duration:400}}}});
 }});
+document.getElementById('polarityLayout').addEventListener('click', applyPolarityLayout);
 document.getElementById('search').addEventListener('keydown', e => {{
   if (e.key !== 'Enter') return;
   const q = e.target.value.trim().toLowerCase();
@@ -1389,7 +1417,56 @@ rebuild();
 const BASE_POSITIONS = network.getPositions();
 const BASE_IDS = Object.keys(BASE_POSITIONS);
 const BASE_CENTER = BASE_IDS.reduce((center, id) => ({{x:center.x + BASE_POSITIONS[id].x / BASE_IDS.length, y:center.y + BASE_POSITIONS[id].y / BASE_IDS.length}}), {{x:0, y:0}});
+function clearActiveLayout() {{
+  document.querySelectorAll('.layout-actions button').forEach(button => button.classList.remove('layout-active'));
+  document.getElementById('polarityGuide').hidden = true;
+}}
+function layoutJitter(id) {{
+  let hash = 0;
+  for (const char of String(id)) hash = ((hash * 31) + char.charCodeAt(0)) >>> 0;
+  return ((hash % 201) - 100) * 1.15;
+}}
+function applyPolarityLayout() {{
+  clearActiveLayout();
+  document.getElementById('polarityLayout').classList.add('layout-active');
+  document.getElementById('polarityGuide').hidden = false;
+  network.stopSimulation();
+  network.setOptions({{physics: {{enabled:false}}}});
+
+  const visibleIds = [];
+  nodes.get().forEach(node => {{
+    const base = BASE_POSITIONS[node.id] || {{x:BASE_CENTER.x, y:BASE_CENTER.y}};
+    const score = Math.max(-1, Math.min(1, Number(node.polarity_score) || 0));
+    const polarity = String(node.polarity || 'neutral');
+    const jitter = layoutJitter(node.id);
+    const neutralOffset = Math.max(-600, Math.min(600, base.x - BASE_CENTER.x));
+    let x = BASE_CENTER.x + neutralOffset * 0.55 + jitter * 0.25;
+    if (polarity === 'positiva') {{
+      const strength = Math.max(0, Math.min(1, (score - 0.20) / 0.80));
+      x = BASE_CENTER.x - 760 - strength * 260 + jitter;
+    }} else if (polarity === 'negativa') {{
+      const strength = Math.max(0, Math.min(1, (-score - 0.20) / 0.80));
+      x = BASE_CENTER.x + 760 + strength * 260 + jitter;
+    }} else if (polarity === 'mixta') {{
+      x = BASE_CENTER.x - Math.max(-1, Math.min(1, score / 0.20)) * 520 + jitter * 0.55;
+    }}
+    const y = BASE_CENTER.y + (base.y - BASE_CENTER.y) * 1.55;
+    network.moveNode(node.id, x, y);
+    if (!node.hidden) visibleIds.push(node.id);
+  }});
+
+  const colorMode = document.getElementById('guidedColorMode');
+  if (colorMode) {{
+    colorMode.value = 'polarity';
+    colorMode.dispatchEvent(new Event('change'));
+  }}
+  requestAnimationFrame(() => network.fit({{
+    nodes: visibleIds,
+    animation: {{duration:550, easingFunction:'easeInOutQuad'}}
+  }}));
+}}
 function applySeparation(value) {{
+  clearActiveLayout();
   const normalized = Math.max(0, Math.min(100, Number(value) || 0)) / 100;
   const scale = 1 + normalized * 1.25;
   network.stopSimulation();
@@ -1481,9 +1558,7 @@ def main() -> None:
         accounts_per_position=args.accounts_per_position,
         words_per_position=args.words_per_position,
     )
-    html_out = build_html(nodes, edges, meta, topic_info, base, args.scope_label)
     html_path = out_dir / args.output_filename
-    html_path.write_text(html_out, encoding="utf-8")
 
     print("      aplicando temas rastreados, polaridad y postura")
     lexicons = load_lexicons(
@@ -1571,6 +1646,17 @@ def main() -> None:
             if position.get("tema_id") is not None:
                 network_topics.add(int(position["tema_id"]))
         annotations.setdefault(node_id, {})["network_topics"] = sorted(network_topics)
+
+    # La vista de posiciones usa estos campos para acomodar todos los tipos de
+    # nodo sobre un eje continuo de polaridad. Se conservan también dentro de
+    # la capa guiada para filtros, colores y salidas de auditoría.
+    for node in nodes:
+        annotation = annotations.get(str(node["id"]), {})
+        node["polarity"] = str(annotation.get("polarity", "neutral"))
+        node["polarity_score"] = float(annotation.get("polarity_score", 0.0) or 0.0)
+
+    html_out = build_html(nodes, edges, meta, topic_info, base, args.scope_label)
+    html_path.write_text(html_out, encoding="utf-8")
     inject_guided_layer(
         html_path,
         annotations,
